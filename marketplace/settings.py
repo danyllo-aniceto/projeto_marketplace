@@ -19,6 +19,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',        # Motor da API
+    'corsheaders',           # Libera o React para "bater" aqui
 
     # REMOVIDO: 'users'
     'marketplace_app',
@@ -29,6 +31,7 @@ INSTALLED_APPS = [
 # MIDDLEWARE
 # =========================
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -70,9 +73,9 @@ WSGI_APPLICATION = 'marketplace.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'marketplace_db',
+        'NAME': 'techhub_db',  # Ajuste aqui para o nome que criamos no pgAdmin
         'USER': 'postgres',
-        'PASSWORD': '1234',
+        'PASSWORD': 'Msb110405@',    # Verifique se essa é a senha que você definiu no initdb
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -126,3 +129,11 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # Para desenvo
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}

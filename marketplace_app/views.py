@@ -3,8 +3,15 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.db import models
 from django.contrib import messages
+from rest_framework import generics
+from .models import Listing
+from .serializers import ListingSerializer
 from .forms import ListingForm, CommentForm, UserProfileForm, CommonProfileForm, StoreProfileForm
 from .models import Listing, ListingImage, Category, StoreProfile, CommonProfile, Comment, Cart, CartItem
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from .serializers import RegisterSerializer
 
 
 def home(request):
@@ -308,3 +315,15 @@ def register(request):
         return redirect('home')
 
     return render(request, 'users/register.html')
+
+class ListingListAPIView(generics.ListAPIView):
+    queryset = Listing.objects.all().order_by('-created_at')
+    serializer_class = ListingSerializer
+
+class RegisterView(APIView):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Usuário criado com sucesso!"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
