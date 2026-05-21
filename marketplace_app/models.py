@@ -45,10 +45,12 @@ class Category(models.Model):
 class Listing(models.Model):
     SALE = 'sale'
     TRADE = 'trade'
+    BOTH = 'both'
 
     LISTING_TYPE_CHOICES = [
         (SALE, 'Venda'),
         (TRADE, 'Troca'),
+        (BOTH, 'Venda e Troca'),
     ]
 
     NEW = 'new'

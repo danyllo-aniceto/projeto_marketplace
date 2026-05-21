@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.db import models
 from django.contrib import messages
-from .forms import ListingForm, CommentForm, UserProfileForm, CommonProfileForm, StoreProfileForm
+from .forms import ListingForm, CommentForm, UserProfileForm, CommonProfileForm, StoreProfileForm, ChangePasswordForm
 from .models import Listing, ListingImage, Category, StoreProfile, CommonProfile, Comment, Cart, CartItem
 
 
@@ -174,6 +174,30 @@ def edit_profile(request):
         'user_form': user_form,
         'profile_form': profile_form,
         'is_store': user.is_store,
+    })
+
+
+@login_required
+def change_password(request):
+    if request.method == 'POST':
+        form = ChangePasswordForm(request.POST)
+        if form.is_valid():
+            old_password = form.cleaned_data.get('old_password')
+            new_password = form.cleaned_data.get('new_password')
+            
+            # Verificar se a senha antiga está correta
+            if request.user.check_password(old_password):
+                request.user.set_password(new_password)
+                request.user.save()
+                messages.success(request, 'Senha alterada com sucesso!')
+                return redirect('edit_profile')
+            else:
+                messages.error(request, 'A senha atual está incorreta.')
+    else:
+        form = ChangePasswordForm()
+
+    return render(request, 'users/change_password.html', {
+        'form': form,
     })
 
 

@@ -44,28 +44,12 @@
             <button class="carousel-nav next" onclick="nextSlide()">&#10095;</button>
             <div class="carousel-indicators" id="carousel-indicators">
                 {% for product in carousel_products %}
-                <div class="carousel-indicator{% if forloop.first %} active{% endif %}" onclick="goToSlide({{ forloop.counter0 }})"></div>
+                <div class="carousel-indicator{% if forloop.first %} active{% endif %}" data-slide="{{ forloop.counter0 }}"></div>
                 {% endfor %}
             </div>
         </div>
     </div>
     {% endif %}
-
-    <!-- USER SECTION -->
-    <div class="container">
-        <div class="user-info">
-            <p>
-                <strong>Bem-vindo, {{ user.username }}!</strong>
-                <span style="color: #00d4ff; margin-left: 1rem;">
-                    ({{ user.is_store|yesno:"Loja,Usuário" }})
-                </span>
-            </p>
-            <div class="user-actions">
-                <a href="{% url 'criar_anuncio' %}"><span class="material-icons">add</span> Criar Anúncio</a>
-                <a href="{% url 'logout' %}" class="btn-logout"><span class="material-icons">logout</span> Sair</a>
-            </div>
-        </div>
-    </div>
 
 {% else %}
     <!-- HERO SECTION FOR NON-AUTHENTICATED USERS -->
@@ -81,38 +65,6 @@
             </div>
         </div>
     </div>
-
-    <!-- CAROUSEL -->
-    {% if carousel_products %}
-    <div class="container">
-        <h2 class="section-title"><span class="material-icons">slideshow</span> Últimos Produtos</h2>
-        <div class="carousel">
-            <div class="carousel-container" id="carousel-container">
-                {% for product in carousel_products %}
-                <div class="carousel-slide">
-                    {% if product.images.all %}
-                        <img src="{{ product.images.first.image.url }}" alt="{{ product.title }}">
-                    {% else %}
-                        <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #00d4ff, #0066ff); font-size: 5rem;"><span class="material-icons">devices</span></div>
-                    {% endif %}
-                    <div class="carousel-content">
-                        <h3>{{ product.title }}</h3>
-                        <p>{{ product.description|truncatechars:100 }}</p>
-                        <div class="price">R$ {{ product.price|floatformat:2 }}</div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            <button class="carousel-nav prev" onclick="prevSlide()">&#10094;</button>
-            <button class="carousel-nav next" onclick="nextSlide()">&#10095;</button>
-            <div class="carousel-indicators" id="carousel-indicators">
-                {% for product in carousel_products %}
-                <div class="carousel-indicator{% if forloop.first %} active{% endif %}" onclick="goToSlide({{ forloop.counter0 }})"></div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
 
 {% endif %}
 
@@ -174,10 +126,12 @@
                         {% endif %}
                     </div>
 
-                    <p style="font-size: 0.85rem; color: #999999; margin-top: 0.8rem;">
+                    <p class="product-seller">
                         <span class="material-icons">person</span> Vendedor: <strong><a href="{% url 'user_profile' anuncio.seller.username %}" class="seller-link">{{ anuncio.seller.username }}</a></strong>
-                        {% if anuncio.is_featured %}<span class="material-icons" style="color: #ffd700; margin-left: 0.5rem;" title="Patrocinado">star</span>{% endif %}
-                        {% if anuncio.is_store_featured %}<span class="material-icons" style="color: #00ff88; margin-left: 0.5rem;" title="Loja Verificada">verified</span>{% endif %}
+                        <span class="product-seller-icons">
+                            {% if anuncio.is_featured %}<span class="material-icons" style="color: #ffd700;" title="Patrocinado">star</span>{% endif %}
+                            {% if anuncio.is_store_featured %}<span class="material-icons" style="color: #00ff88;" title="Loja Verificada">verified</span>{% endif %}
+                        </span>
                     </p>
                 </div>
             </div>
@@ -187,7 +141,7 @@
 {% endif %}
 
 <!-- PRODUCTS SECTION -->
-<div class="container">
+<div class="container" id="products">
     <h2 class="section-title">
         <span class="material-icons">grid_view</span> 
         {% if selected_category %}
@@ -229,10 +183,12 @@
                             {% endif %}
                         </div>
 
-                        <p style="font-size: 0.85rem; color: #999999; margin-top: 0.8rem;">
+                        <p class="product-seller">
                             <span class="material-icons">person</span> Vendedor: <strong><a href="{% url 'user_profile' anuncio.seller.username %}" class="seller-link">{{ anuncio.seller.username }}</a></strong>
-                            {% if anuncio.is_featured %}<span class="material-icons" style="color: #ffd700; margin-left: 0.5rem;" title="Patrocinado">star</span>{% endif %}
-                            {% if anuncio.is_store_featured %}<span class="material-icons" style="color: #00ff88; margin-left: 0.5rem;" title="Loja Verificada">verified</span>{% endif %}
+                            <span class="product-seller-icons">
+                                {% if anuncio.is_featured %}<span class="material-icons" style="color: #ffd700;" title="Patrocinado">star</span>{% endif %}
+                                {% if anuncio.is_store_featured %}<span class="material-icons" style="color: #00ff88;" title="Loja Verificada">verified</span>{% endif %}
+                            </span>
                         </p>
                     </div>
                 </div>
@@ -283,6 +239,30 @@ function goToSlide(slideIndex) {
     currentSlide = slideIndex;
     updateCarousel();
 }
+
+// Add event listeners to indicators
+indicators.forEach(indicator => {
+    indicator.addEventListener('click', () => {
+        const slideIndex = parseInt(indicator.dataset.slide);
+        goToSlide(slideIndex);
+    });
+});
+
+// Save scroll position before category filter reload
+document.querySelectorAll('.category-card').forEach(link => {
+    link.addEventListener('click', () => {
+        sessionStorage.setItem('scrollPosition', window.scrollY);
+    });
+});
+
+// Restore scroll position after page load
+window.addEventListener('load', () => {
+    const scrollPos = sessionStorage.getItem('scrollPosition');
+    if (scrollPos) {
+        window.scrollTo(0, parseInt(scrollPos));
+        sessionStorage.removeItem('scrollPosition');
+    }
+});
 
 // Auto-play carousel
 setInterval(nextSlide, 5000);

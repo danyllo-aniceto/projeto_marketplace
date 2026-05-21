@@ -6,6 +6,7 @@ urlpatterns = [
     path('criar-anuncio/', views.criar_anuncio, name='criar_anuncio'),
     path('meus-anuncios/', views.my_listings, name='my_listings'),
     path('editar-perfil/', views.edit_profile, name='edit_profile'),
+    path('alterar-senha/', views.change_password, name='change_password'),
     path('perfil/<str:username>/', views.user_profile, name='user_profile'),
     path('editar-anuncio/<int:pk>/', views.edit_listing, name='edit_listing'),
     path('excluir-anuncio/<int:pk>/', views.delete_listing, name='delete_listing'),

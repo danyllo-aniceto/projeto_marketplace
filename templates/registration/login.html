@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Tech Hub{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-box">
+        <h2>Login</h2>
+
+        {% if form.non_field_errors %}
+            <div class="error-message">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="form-group">
+                {{ form.username.label_tag }}
+                {{ form.username }}
+                {% if form.username.errors %}
+                    <div class="error-message">
+                        {{ form.username.errors }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <div class="password-container">
+                    {{ form.password.label_tag }}
+                    {{ form.password }}
+                    <button type="button" class="password-toggle" onclick="togglePasswordVisibility()" id="togglePassword">
+                        <span class="material-icons">visibility</span>
+                    </button>
+                </div>
+                {% if form.password.errors %}
+                    <div class="error-message">
+                        {{ form.password.errors }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <button type="submit" class="form-group button">Entrar</button>
+
+            <div class="auth-links">
+                <p>Não tem uma conta? <a href="{% url 'register' %}">Registre-se aqui</a></p>
+                <p><a href="{% url 'password_reset' %}">Esqueceu sua senha?</a></p>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function togglePasswordVisibility() {
+    const passwordInput = document.querySelector('input[name="password"]');
+    const toggleButton = document.getElementById('togglePassword');
+    
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleButton.innerHTML = '<span class="material-icons">visibility_off</span>';
+    } else {
+        passwordInput.type = 'password';
+        toggleButton.innerHTML = '<span class="material-icons">visibility</span>';
+    }
+}
+</script>
+{% endblock %}
