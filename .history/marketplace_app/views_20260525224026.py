@@ -256,13 +256,100 @@ def checkout_view(request):
     buy_items = [item for item in items if item.desired_action == CartItem.BUY]
     trade_items = [item for item in items if item.desired_action == CartItem.TRADE]
 
-    # Use helper functions from view_helpers for checkout and trade creation
+    def _process_buy_checkout(user, buy_items, trade_items, form):
+        with transaction.atomic():
+            order = Order.objects.create(
+                buyer=user,
+                payment_method=form.cleaned_data['payment_method'],
+                delivery_method=form.cleaned_data['delivery_method'],
+                notes=form.cleaned_data['notes'],
+                total_amount=0,
+            )
+
+            order_total = 0
+            for item in buy_items:
+                OrderItem.objects.create(
+                    order=order,
+                    listing=item.listing,
+                    seller=item.listing.seller,
+                    title_snapshot=item.listing.title,
+                    unit_price_snapshot=item.listing.price,
+                    quantity=1,
+                )
+                order_total += item.listing.price
+
+            order.total_amount = order_total
+            order.save(update_fields=['total_amount'])
+
+            delivery = Delivery.objects.create(
+                order=order,
+                method=form.cleaned_data['delivery_method'],
+                recipient_name=form.cleaned_data['recipient_name'],
+                recipient_phone=form.cleaned_data['recipient_phone'],
+                postal_code=form.cleaned_data['postal_code'],
+                street=form.cleaned_data['street'],
+                number=form.cleaned_data['number'],
+                complement=form.cleaned_data['complement'],
+                neighborhood=form.cleaned_data['neighborhood'],
+                city=form.cleaned_data['city'],
+                state=form.cleaned_data['state'].upper(),
+                notes=form.cleaned_data['notes'],
+            )
+
+            payment_transaction = PaymentTransaction.objects.create(
+                order=order,
+                gateway=PaymentTransaction.MERCADO_PAGO,
+                amount=order_total,
+                external_reference=f'order-{order.pk}',
+            )
+
+            preference_response = create_mercado_pago_preference(request, order, order.items.all())
+            if preference_response:
+                payment_transaction.preference_id = preference_response.get('id', '')
+                payment_transaction.checkout_url = preference_response.get('init_point', '')
+                payment_transaction.payload = preference_response
+                payment_transaction.status = PaymentTransaction.PROCESSING
+                payment_transaction.save(update_fields=['preference_id', 'checkout_url', 'payload', 'status'])
+
+            created_trade_requests = []
+            for item in trade_items:
+                trade_request = TradeRequest.objects.create(
+                    requester=user,
+                    counterparty=item.listing.seller,
+                    listing=item.listing,
+                    initial_message=f'Pedido iniciado pelo carrinho para {item.listing.title}.',
+                )
+                created_trade_requests.append(trade_request)
+
+            if buy_items:
+                CartItem.objects.filter(pk__in=[item.pk for item in buy_items]).delete()
+            if trade_items:
+                CartItem.objects.filter(pk__in=[item.pk for item in trade_items]).delete()
+
+            return order, payment_transaction, created_trade_requests
+
+    def _process_trade_only(user, trade_items):
+        with transaction.atomic():
+            created_trade_requests = []
+            for item in trade_items:
+                trade_request = TradeRequest.objects.create(
+                    requester=user,
+                    counterparty=item.listing.seller,
+                    listing=item.listing,
+                    initial_message=f'Pedido iniciado pelo carrinho para {item.listing.title}.',
+                )
+                created_trade_requests.append(trade_request)
+
+            if trade_items:
+                CartItem.objects.filter(pk__in=[item.pk for item in trade_items]).delete()
+
+            return created_trade_requests
 
     if request.method == 'POST':
         if buy_items:
             form = CheckoutForm(request.POST)
             if form.is_valid():
-                order, payment_transaction, created_trade_requests = process_buy_checkout(request, request.user, buy_items, trade_items, form)
+                order, payment_transaction, created_trade_requests = _process_buy_checkout(request.user, buy_items, trade_items, form)
 
                 messages.success(request, 'Checkout iniciado com sucesso.')
                 if created_trade_requests:
@@ -271,7 +358,7 @@ def checkout_view(request):
                     return redirect(payment_transaction.checkout_url)
                 return redirect('order_detail', pk=order.pk)
         else:
-            created_trade_requests = process_trade_only(request.user, trade_items)
+            created_trade_requests = _process_trade_only(request.user, trade_items)
             messages.success(request, 'Solicitações de troca criadas com sucesso.')
             return redirect('trade_requests')
     else:
@@ -615,8 +702,63 @@ def mercadopago_webhook(request):
     except Exception:
         return HttpResponseBadRequest('Invalid JSON')
 
-    result = mercadopago_webhook_handler(payload)
-    return JsonResponse(result)
+    # attempt to extract useful fields from known mercadopago payload shapes
+    data = payload.get('data') or payload.get('resource') or payload
+    status_str = None
+    preference_id = None
+    external_reference = None
+
+    # common shapes: {"type":"payment","data":{"id":..., "status":"approved", "preference_id":"pref_..."}}
+    if isinstance(data, dict):
+        status_str = data.get('status')
+        preference_id = data.get('preference_id') or data.get('id')
+        external_reference = data.get('external_reference')
+
+    # fallback: top-level
+    if not preference_id:
+        preference_id = payload.get('preference_id') or payload.get('id')
+    if not external_reference:
+        external_reference = payload.get('external_reference')
+
+    # map incoming status to our model choices
+    status_map = {
+        'approved': PaymentTransaction.APPROVED,
+        'paid': PaymentTransaction.APPROVED,
+        'authorized': PaymentTransaction.APPROVED,
+        'pending': PaymentTransaction.PENDING,
+        'in_process': PaymentTransaction.PROCESSING,
+        'processing': PaymentTransaction.PROCESSING,
+        'rejected': PaymentTransaction.REJECTED,
+        'cancelled': PaymentTransaction.CANCELLED,
+        'refunded': PaymentTransaction.REFUNDED,
+    }
+
+    new_status = None
+    if status_str:
+        new_status = status_map.get(status_str.lower())
+
+    # find transaction by preference_id or external_reference
+    tx = None
+    if preference_id:
+        tx = PaymentTransaction.objects.filter(preference_id=str(preference_id)).first()
+    if not tx and external_reference:
+        # external_reference may be like 'order-<pk>'
+        tx = PaymentTransaction.objects.filter(external_reference=str(external_reference)).first()
+
+    if not tx:
+        # nothing to update
+        return JsonResponse({'updated': False, 'reason': 'transaction_not_found'})
+
+    if new_status:
+        tx.status = new_status
+        tx.payload = payload
+        tx.save(update_fields=['status', 'payload', 'updated_at'])
+        return JsonResponse({'updated': True, 'status': tx.status})
+
+    # if we couldn't map a status, preserve payload
+    tx.payload = payload
+    tx.save(update_fields=['payload', 'updated_at'])
+    return JsonResponse({'updated': True, 'status': tx.status})
 
 
 @csrf_exempt
@@ -633,12 +775,31 @@ def delivery_update_api(request, order_pk):
     except Exception:
         return HttpResponseBadRequest('Invalid JSON')
 
-    result = delivery_update_handler(order_pk, payload)
-    status = 200
-    if not result.get('updated'):
-        if result.get('reason') == 'delivery_not_found':
-            status = 404
-        elif result.get('reason') == 'invalid_status' or result.get('reason') == 'invalid_date':
-            status = 400
+    status_val = payload.get('status')
+    tracking = payload.get('tracking_code')
+    carrier = payload.get('carrier_name')
+    eta = payload.get('estimated_delivery_date')
 
-    return JsonResponse(result, status=status)
+    try:
+        delivery = Delivery.objects.select_related('order').get(order__pk=order_pk)
+    except Delivery.DoesNotExist:
+        return JsonResponse({'updated': False, 'reason': 'delivery_not_found'}, status=404)
+
+    allowed_statuses = {s[0] for s in Delivery.STATUS_CHOICES}
+    if status_val and status_val not in allowed_statuses:
+        return JsonResponse({'updated': False, 'reason': 'invalid_status'}, status=400)
+
+    if status_val:
+        delivery.status = status_val
+    if tracking is not None:
+        delivery.tracking_code = tracking
+    if carrier is not None:
+        delivery.carrier_name = carrier
+    if eta:
+        parsed = parse_date(eta)
+        if not parsed:
+            return JsonResponse({'updated': False, 'reason': 'invalid_date'}, status=400)
+        delivery.estimated_delivery_date = parsed
+
+    delivery.save(update_fields=['status', 'tracking_code', 'carrier_name', 'estimated_delivery_date', 'updated_at'])
+    return JsonResponse({'updated': True, 'status': delivery.status})

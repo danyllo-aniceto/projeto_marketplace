@@ -633,12 +633,31 @@ def delivery_update_api(request, order_pk):
     except Exception:
         return HttpResponseBadRequest('Invalid JSON')
 
-    result = delivery_update_handler(order_pk, payload)
-    status = 200
-    if not result.get('updated'):
-        if result.get('reason') == 'delivery_not_found':
-            status = 404
-        elif result.get('reason') == 'invalid_status' or result.get('reason') == 'invalid_date':
-            status = 400
+    status_val = payload.get('status')
+    tracking = payload.get('tracking_code')
+    carrier = payload.get('carrier_name')
+    eta = payload.get('estimated_delivery_date')
 
-    return JsonResponse(result, status=status)
+    try:
+        delivery = Delivery.objects.select_related('order').get(order__pk=order_pk)
+    except Delivery.DoesNotExist:
+        return JsonResponse({'updated': False, 'reason': 'delivery_not_found'}, status=404)
+
+    allowed_statuses = {s[0] for s in Delivery.STATUS_CHOICES}
+    if status_val and status_val not in allowed_statuses:
+        return JsonResponse({'updated': False, 'reason': 'invalid_status'}, status=400)
+
+    if status_val:
+        delivery.status = status_val
+    if tracking is not None:
+        delivery.tracking_code = tracking
+    if carrier is not None:
+        delivery.carrier_name = carrier
+    if eta:
+        parsed = parse_date(eta)
+        if not parsed:
+            return JsonResponse({'updated': False, 'reason': 'invalid_date'}, status=400)
+        delivery.estimated_delivery_date = parsed
+
+    delivery.save(update_fields=['status', 'tracking_code', 'carrier_name', 'estimated_delivery_date', 'updated_at'])
+    return JsonResponse({'updated': True, 'status': delivery.status})

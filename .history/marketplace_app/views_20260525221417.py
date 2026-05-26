@@ -35,20 +35,52 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .serializers import RegisterSerializer
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
-from django.utils.dateparse import parse_date
-
-from .view_helpers import (
-    create_mercado_pago_preference,
-    process_buy_checkout,
-    process_trade_only,
-    mercadopago_webhook_handler,
-    delivery_update_handler,
-)
 
 
-# Mercado Pago preference creation and other helpers live in view_helpers.py
+def create_mercado_pago_preference(request, order, order_items):
+    access_token = getattr(settings, 'MERCADO_PAGO_ACCESS_TOKEN', '')
+
+    if not access_token:
+        return None
+
+    items_payload = []
+    for item in order_items:
+        items_payload.append({
+            'title': item.title_snapshot,
+            'quantity': item.quantity,
+            'unit_price': float(item.unit_price_snapshot),
+            'currency_id': 'BRL',
+        })
+
+    payload = {
+        'items': items_payload,
+        'external_reference': f'order-{order.pk}',
+        'back_urls': {
+            'success': request.build_absolute_uri(reverse('order_detail', args=[order.pk])),
+            'pending': request.build_absolute_uri(reverse('order_detail', args=[order.pk])),
+            'failure': request.build_absolute_uri(reverse('order_detail', args=[order.pk])),
+        },
+        'auto_return': 'approved',
+    }
+
+    body = json.dumps(payload).encode('utf-8')
+    api_request = urllib.request.Request(
+        'https://api.mercadopago.com/checkout/preferences',
+        data=body,
+        headers={
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json',
+        },
+        method='POST',
+    )
+
+    try:
+        with urllib.request.urlopen(api_request, timeout=15) as response:
+            response_data = json.loads(response.read().decode('utf-8'))
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        return None
+
+    return response_data
 
 
 def home(request):
@@ -256,13 +288,78 @@ def checkout_view(request):
     buy_items = [item for item in items if item.desired_action == CartItem.BUY]
     trade_items = [item for item in items if item.desired_action == CartItem.TRADE]
 
-    # Use helper functions from view_helpers for checkout and trade creation
-
     if request.method == 'POST':
         if buy_items:
             form = CheckoutForm(request.POST)
             if form.is_valid():
-                order, payment_transaction, created_trade_requests = process_buy_checkout(request, request.user, buy_items, trade_items, form)
+                with transaction.atomic():
+                    order = Order.objects.create(
+                        buyer=request.user,
+                        payment_method=form.cleaned_data['payment_method'],
+                        delivery_method=form.cleaned_data['delivery_method'],
+                        notes=form.cleaned_data['notes'],
+                        total_amount=0,
+                    )
+
+                    order_total = 0
+                    for item in buy_items:
+                        OrderItem.objects.create(
+                            order=order,
+                            listing=item.listing,
+                            seller=item.listing.seller,
+                            title_snapshot=item.listing.title,
+                            unit_price_snapshot=item.listing.price,
+                            quantity=1,
+                        )
+                        order_total += item.listing.price
+
+                    order.total_amount = order_total
+                    order.save(update_fields=['total_amount'])
+
+                    delivery = Delivery.objects.create(
+                        order=order,
+                        method=form.cleaned_data['delivery_method'],
+                        recipient_name=form.cleaned_data['recipient_name'],
+                        recipient_phone=form.cleaned_data['recipient_phone'],
+                        postal_code=form.cleaned_data['postal_code'],
+                        street=form.cleaned_data['street'],
+                        number=form.cleaned_data['number'],
+                        complement=form.cleaned_data['complement'],
+                        neighborhood=form.cleaned_data['neighborhood'],
+                        city=form.cleaned_data['city'],
+                        state=form.cleaned_data['state'].upper(),
+                        notes=form.cleaned_data['notes'],
+                    )
+
+                    payment_transaction = PaymentTransaction.objects.create(
+                        order=order,
+                        gateway=PaymentTransaction.MERCADO_PAGO,
+                        amount=order_total,
+                        external_reference=f'order-{order.pk}',
+                    )
+
+                    preference_response = create_mercado_pago_preference(request, order, order.items.all())
+                    if preference_response:
+                        payment_transaction.preference_id = preference_response.get('id', '')
+                        payment_transaction.checkout_url = preference_response.get('init_point', '')
+                        payment_transaction.payload = preference_response
+                        payment_transaction.status = PaymentTransaction.PROCESSING
+                        payment_transaction.save(update_fields=['preference_id', 'checkout_url', 'payload', 'status'])
+
+                    created_trade_requests = []
+                    for item in trade_items:
+                        trade_request = TradeRequest.objects.create(
+                            requester=request.user,
+                            counterparty=item.listing.seller,
+                            listing=item.listing,
+                            initial_message=f'Pedido iniciado pelo carrinho para {item.listing.title}.',
+                        )
+                        created_trade_requests.append(trade_request)
+
+                    if buy_items:
+                        CartItem.objects.filter(pk__in=[item.pk for item in buy_items]).delete()
+                    if trade_items:
+                        CartItem.objects.filter(pk__in=[item.pk for item in trade_items]).delete()
 
                 messages.success(request, 'Checkout iniciado com sucesso.')
                 if created_trade_requests:
@@ -271,7 +368,20 @@ def checkout_view(request):
                     return redirect(payment_transaction.checkout_url)
                 return redirect('order_detail', pk=order.pk)
         else:
-            created_trade_requests = process_trade_only(request.user, trade_items)
+            with transaction.atomic():
+                created_trade_requests = []
+                for item in trade_items:
+                    trade_request = TradeRequest.objects.create(
+                        requester=request.user,
+                        counterparty=item.listing.seller,
+                        listing=item.listing,
+                        initial_message=f'Pedido iniciado pelo carrinho para {item.listing.title}.',
+                    )
+                    created_trade_requests.append(trade_request)
+
+                if trade_items:
+                    CartItem.objects.filter(pk__in=[item.pk for item in trade_items]).delete()
+
             messages.success(request, 'Solicitações de troca criadas com sucesso.')
             return redirect('trade_requests')
     else:
@@ -598,47 +708,3 @@ class RegisterView(APIView):
             serializer.save()
             return Response({"message": "Usuário criado com sucesso!"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-@csrf_exempt
-def mercadopago_webhook(request):
-    """Basic webhook endpoint for Mercado Pago events.
-
-    Accepts JSON POSTs with payment info. Tries to find a PaymentTransaction by
-    `preference_id` or `external_reference` (exact match) and updates its status.
-    """
-    if request.method != 'POST':
-        return HttpResponse(status=405)
-
-    try:
-        payload = json.loads(request.body.decode('utf-8'))
-    except Exception:
-        return HttpResponseBadRequest('Invalid JSON')
-
-    result = mercadopago_webhook_handler(payload)
-    return JsonResponse(result)
-
-
-@csrf_exempt
-def delivery_update_api(request, order_pk):
-    """API to update delivery status and optional fields.
-
-    Expected JSON: {"status": "in_transit", "tracking_code": "XYZ", "carrier_name": "GLS", "estimated_delivery_date": "2026-05-30"}
-    """
-    if request.method != 'POST':
-        return HttpResponse(status=405)
-
-    try:
-        payload = json.loads(request.body.decode('utf-8'))
-    except Exception:
-        return HttpResponseBadRequest('Invalid JSON')
-
-    result = delivery_update_handler(order_pk, payload)
-    status = 200
-    if not result.get('updated'):
-        if result.get('reason') == 'delivery_not_found':
-            status = 404
-        elif result.get('reason') == 'invalid_status' or result.get('reason') == 'invalid_date':
-            status = 400
-
-    return JsonResponse(result, status=status)

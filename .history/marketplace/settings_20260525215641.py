@@ -1,6 +1,5 @@
 from pathlib import Path
 import os
-from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -163,32 +162,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MERCADO_PAGO_ACCESS_TOKEN = env('MERCADO_PAGO_ACCESS_TOKEN', default='')
 MERCADO_PAGO_PUBLIC_KEY = env('MERCADO_PAGO_PUBLIC_KEY', default='')
 SITE_URL = env('SITE_URL', default='http://127.0.0.1:8000')
-
-
-# =========================
-# PRODUCTION HARDENING
-# =========================
-# Ensure SECRET_KEY is not the insecure default when running with DEBUG=False
-if not DEBUG and SECRET_KEY == 'django-insecure-key':
-    raise ImproperlyConfigured('SECRET_KEY must be set to a secure value in production')
-
-# Cookie and SSL settings - default to secure when DEBUG is False
-SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=not DEBUG)
-CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=not DEBUG)
-SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=not DEBUG)
-
-# HSTS - sensible defaults for production; can be overridden via .env
-SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=31536000 if not DEBUG else 0)
-SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=True)
-SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD', default=True)
-
-# When running behind a proxy/load-balancer that sets X-Forwarded-Proto
-if env.bool('USE_X_FORWARDED_PROTO', default=False):
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-# X-Frame options
-X_FRAME_OPTIONS = env('X_FRAME_OPTIONS', default='DENY')
-
-# Enforce ALLOWED_HOSTS in production - keep empty for local development
-if not DEBUG and not ALLOWED_HOSTS:
-    raise ImproperlyConfigured('ALLOWED_HOSTS must be set in production')

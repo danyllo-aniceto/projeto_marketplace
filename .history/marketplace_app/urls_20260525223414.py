@@ -30,5 +30,4 @@ urlpatterns = [
     path('api/listings/', ListingListAPIView.as_view(), name='api-listings'),
     path('api/register/', views.RegisterView.as_view(), name='api_register'),
     path('webhooks/mercadopago/', views.mercadopago_webhook, name='mp_webhook'),
-    path('api/delivery/<int:order_pk>/status/', views.delivery_update_api, name='api_delivery_update'),
 ]

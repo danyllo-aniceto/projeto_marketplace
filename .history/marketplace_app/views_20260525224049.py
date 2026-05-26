@@ -615,8 +615,63 @@ def mercadopago_webhook(request):
     except Exception:
         return HttpResponseBadRequest('Invalid JSON')
 
-    result = mercadopago_webhook_handler(payload)
-    return JsonResponse(result)
+    # attempt to extract useful fields from known mercadopago payload shapes
+    data = payload.get('data') or payload.get('resource') or payload
+    status_str = None
+    preference_id = None
+    external_reference = None
+
+    # common shapes: {"type":"payment","data":{"id":..., "status":"approved", "preference_id":"pref_..."}}
+    if isinstance(data, dict):
+        status_str = data.get('status')
+        preference_id = data.get('preference_id') or data.get('id')
+        external_reference = data.get('external_reference')
+
+    # fallback: top-level
+    if not preference_id:
+        preference_id = payload.get('preference_id') or payload.get('id')
+    if not external_reference:
+        external_reference = payload.get('external_reference')
+
+    # map incoming status to our model choices
+    status_map = {
+        'approved': PaymentTransaction.APPROVED,
+        'paid': PaymentTransaction.APPROVED,
+        'authorized': PaymentTransaction.APPROVED,
+        'pending': PaymentTransaction.PENDING,
+        'in_process': PaymentTransaction.PROCESSING,
+        'processing': PaymentTransaction.PROCESSING,
+        'rejected': PaymentTransaction.REJECTED,
+        'cancelled': PaymentTransaction.CANCELLED,
+        'refunded': PaymentTransaction.REFUNDED,
+    }
+
+    new_status = None
+    if status_str:
+        new_status = status_map.get(status_str.lower())
+
+    # find transaction by preference_id or external_reference
+    tx = None
+    if preference_id:
+        tx = PaymentTransaction.objects.filter(preference_id=str(preference_id)).first()
+    if not tx and external_reference:
+        # external_reference may be like 'order-<pk>'
+        tx = PaymentTransaction.objects.filter(external_reference=str(external_reference)).first()
+
+    if not tx:
+        # nothing to update
+        return JsonResponse({'updated': False, 'reason': 'transaction_not_found'})
+
+    if new_status:
+        tx.status = new_status
+        tx.payload = payload
+        tx.save(update_fields=['status', 'payload', 'updated_at'])
+        return JsonResponse({'updated': True, 'status': tx.status})
+
+    # if we couldn't map a status, preserve payload
+    tx.payload = payload
+    tx.save(update_fields=['payload', 'updated_at'])
+    return JsonResponse({'updated': True, 'status': tx.status})
 
 
 @csrf_exempt
@@ -633,12 +688,31 @@ def delivery_update_api(request, order_pk):
     except Exception:
         return HttpResponseBadRequest('Invalid JSON')
 
-    result = delivery_update_handler(order_pk, payload)
-    status = 200
-    if not result.get('updated'):
-        if result.get('reason') == 'delivery_not_found':
-            status = 404
-        elif result.get('reason') == 'invalid_status' or result.get('reason') == 'invalid_date':
-            status = 400
+    status_val = payload.get('status')
+    tracking = payload.get('tracking_code')
+    carrier = payload.get('carrier_name')
+    eta = payload.get('estimated_delivery_date')
 
-    return JsonResponse(result, status=status)
+    try:
+        delivery = Delivery.objects.select_related('order').get(order__pk=order_pk)
+    except Delivery.DoesNotExist:
+        return JsonResponse({'updated': False, 'reason': 'delivery_not_found'}, status=404)
+
+    allowed_statuses = {s[0] for s in Delivery.STATUS_CHOICES}
+    if status_val and status_val not in allowed_statuses:
+        return JsonResponse({'updated': False, 'reason': 'invalid_status'}, status=400)
+
+    if status_val:
+        delivery.status = status_val
+    if tracking is not None:
+        delivery.tracking_code = tracking
+    if carrier is not None:
+        delivery.carrier_name = carrier
+    if eta:
+        parsed = parse_date(eta)
+        if not parsed:
+            return JsonResponse({'updated': False, 'reason': 'invalid_date'}, status=400)
+        delivery.estimated_delivery_date = parsed
+
+    delivery.save(update_fields=['status', 'tracking_code', 'carrier_name', 'estimated_delivery_date', 'updated_at'])
+    return JsonResponse({'updated': True, 'status': delivery.status})
