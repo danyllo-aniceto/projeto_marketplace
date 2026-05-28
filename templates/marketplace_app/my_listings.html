@@ -6,6 +6,10 @@
 <div class="container">
     <h2 class="section-title"><span class="material-icons">inventory_2</span> Meus Anúncios</h2>
 
+    <div style="margin-bottom: 1.25rem; display: flex; justify-content: flex-end;">
+        <a href="{% url 'criar_anuncio' %}" class="btn-secondary">Criar novo anúncio</a>
+    </div>
+
     {% if listings %}
         <div class="products-grid">
             {% for anuncio in listings %}

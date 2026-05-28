@@ -7,7 +7,7 @@ from django.db import transaction
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.utils.dateparse import parse_date
 
-from .models import Order, OrderItem, Delivery, PaymentTransaction, TradeRequest, CartItem
+from .models import Order, OrderItem, Delivery, PaymentTransaction, TradeRequest, TradeProposal, CartItem
 
 
 def create_mercado_pago_preference(request, order, order_items):
@@ -115,6 +115,8 @@ def process_buy_checkout(request, user, buy_items, trade_items, form):
                 listing=item.listing,
                 initial_message=f'Pedido iniciado pelo carrinho para {item.listing.title}.',
             )
+            # Do not auto-create an initial empty proposal here. The first proposal
+            # should be created explicitly by the user on the trade detail page.
             created_trade_requests.append(trade_request)
 
         if buy_items:
@@ -135,6 +137,8 @@ def process_trade_only(user, trade_items):
                 listing=item.listing,
                 initial_message=f'Pedido iniciado pelo carrinho para {item.listing.title}.',
             )
+            # Do not auto-create an initial empty proposal here. The first proposal
+            # should be created explicitly by the user on the trade detail page.
             created_trade_requests.append(trade_request)
 
         if trade_items:

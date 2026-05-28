@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block title %}Checkout da troca{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="section-title"><span class="material-icons">swap_horiz</span> Checkout da troca</h2>
+
+    {% if messages %}
+        <div class="alert-container" style="margin-bottom: 1rem;">
+            {% for message in messages %}
+                <div class="alert-message {{ message.tags }}" style="margin-bottom: 0.75rem;">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="cart-grid">
+        <div class="cart-items">
+            <div class="summary-card">
+                <h3>Resumo da troca</h3>
+                <p><strong>Anúncio:</strong> {{ trade_request.listing.title }}</p>
+                <p><strong>Solicitante:</strong> {{ trade_request.requester.username }}</p>
+                <p><strong>Contraparte:</strong> {{ trade_request.counterparty.username }}</p>
+                <p><strong>Valor em dinheiro:</strong> R$ {{ fulfillment.payment_amount|floatformat:2 }}</p>
+                <p><strong>Status:</strong> {{ trade_request.get_status_display }}</p>
+                {% if fulfillment.agreed_proposal %}
+                    <p><strong>Proposta aceita:</strong> {{ fulfillment.agreed_proposal.item_description|default:'-' }}</p>
+                {% endif %}
+            </div>
+
+            <div class="summary-card" style="margin-top: 1.5rem;">
+                <h3>Entrega</h3>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        {{ form.payment_method.label_tag }}
+                        {{ form.payment_method }}
+                    </div>
+                    <div class="form-group">
+                        {{ form.delivery_method.label_tag }}
+                        {{ form.delivery_method }}
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">{{ form.recipient_name.label_tag }}{{ form.recipient_name }}</div>
+                        <div class="form-group">{{ form.recipient_phone.label_tag }}{{ form.recipient_phone }}</div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">{{ form.postal_code.label_tag }}{{ form.postal_code }}</div>
+                        <div class="form-group">{{ form.state.label_tag }}{{ form.state }}</div>
+                    </div>
+                    <div class="form-group">{{ form.street.label_tag }}{{ form.street }}</div>
+                    <div class="form-row">
+                        <div class="form-group">{{ form.number.label_tag }}{{ form.number }}</div>
+                        <div class="form-group">{{ form.complement.label_tag }}{{ form.complement }}</div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">{{ form.neighborhood.label_tag }}{{ form.neighborhood }}</div>
+                        <div class="form-group">{{ form.city.label_tag }}{{ form.city }}</div>
+                    </div>
+                    <div class="form-group">{{ form.notes.label_tag }}{{ form.notes }}</div>
+
+                    <hr style="margin: 1rem 0; border-color: var(--border-color);">
+                    <h4>Suas informações de envio</h4>
+                    {% if user_delivery %}
+                        <p><strong>Forma:</strong> {{ user_delivery.get_delivery_method_display }}</p>
+                        <p><strong>Endereço:</strong> {{ user_delivery.street }} {{ user_delivery.number }}, {{ user_delivery.city }} - {{ user_delivery.state }}</p>
+                        <p><strong>Status:</strong> {{ user_delivery.get_status_display }}</p>
+                    {% else %}
+                        <p>Você ainda não informou os dados de envio.</p>
+                    {% endif %}
+
+                    <h4>Informações de envio do outro</h4>
+                    {% if other_delivery %}
+                        <p><strong>Forma:</strong> {{ other_delivery.get_delivery_method_display }}</p>
+                        <p><strong>Endereço:</strong> {{ other_delivery.street }} {{ other_delivery.number }}, {{ other_delivery.city }} - {{ other_delivery.state }}</p>
+                        <p><strong>Status:</strong> {{ other_delivery.get_status_display }}</p>
+                    {% else %}
+                        <p>O outro participante ainda não informou os dados de envio.</p>
+                    {% endif %}
+
+                    {% if show_qr_simulation %}
+                        <div style="margin: 1rem 0; padding: 1rem; border: 1px solid var(--border-color); border-radius: 16px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap: 1rem; margin-bottom: 0.75rem;">
+                                <div>
+                                    <p style="margin: 0; font-weight: 700;">QR code de simulação</p>
+                                    <p style="margin: 0; color: var(--text-muted);">Escaneamento ilustrativo para o valor adicional da troca.</p>
+                                </div>
+                                <span class="material-icons" style="font-size: 2rem; color: var(--primary-color);">qr_code_2</span>
+                            </div>
+                            <div style="display:flex; justify-content:center;">
+                                <div style="display:grid; grid-template-columns: repeat(21, 1fr); grid-template-rows: repeat(15, 1fr); gap: 2px; padding: 12px; background: #fff; border: 1px solid var(--border-color); border-radius: 12px; width: 100%; max-width: 320px; aspect-ratio: 1 / 1;">
+                                    {% for row in qr_pattern %}
+                                        {% for cell in row %}
+                                            <div style="background: {% if cell == '1' %}#111827{% else %}#ffffff{% endif %}; border-radius: 2px;"></div>
+                                        {% endfor %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <p style="margin: 0.75rem 0 0; color: var(--text-muted);">Referência da simulação: <strong>{{ qr_token }}</strong></p>
+                        </div>
+
+                        <p style="margin-top:0.5rem;color:var(--text-muted);">Apenas o usuário responsável pelo pagamento pode confirmar o pagamento.</p>
+                        <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">Confirmar troca</button>
+                    {% elif ready_to_confirm %}
+                        <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">Confirmar troca</button>
+                    {% else %}
+                        <button type="submit" class="btn-secondary" style="width: 100%;">Gerar QR de simulação</button>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

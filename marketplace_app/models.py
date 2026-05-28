@@ -141,6 +141,7 @@ class Listing(models.Model):
 
     title = models.CharField(max_length=255)
     description = models.TextField()
+    trade_suggestions = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
     listing_type = models.CharField(max_length=10, choices=LISTING_TYPE_CHOICES)
@@ -437,12 +438,99 @@ class TradeRequest(models.Model):
             if self.counterparty_id and self.listing.seller_id != self.counterparty_id:
                 raise ValidationError({'counterparty': 'A contraparte da negociação deve ser o vendedor do anúncio.'})
 
+            if self.listing.status != Listing.ACTIVE and self.status not in [self.CANCELLED, self.COMPLETED]:
+                raise ValidationError({'listing': 'Este anúncio não está mais disponível para troca.'})
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f'Troca #{self.pk} - {self.listing.title}'
+
+
+class TradeProposal(models.Model):
+    trade_request = models.ForeignKey(TradeRequest, on_delete=models.CASCADE, related_name='proposals')
+    proposer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trade_proposals_made')
+    item_description = models.TextField(blank=True)
+    cash_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        super().clean()
+
+        if self.trade_request_id and self.proposer_id:
+            allowed_users = {self.trade_request.requester_id, self.trade_request.counterparty_id}
+            if self.proposer_id not in allowed_users:
+                raise ValidationError({'proposer': 'Somente os participantes da negociação podem criar propostas.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'Proposta de troca #{self.trade_request_id}'
+
+
+class TradeProposalImage(models.Model):
+    proposal = models.ForeignKey(TradeProposal, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='trade_proposals/')
+
+    def __str__(self):
+        return f'Imagem da proposta #{self.proposal_id}'
+
+
+class TradeFulfillment(models.Model):
+    DRAFT = 'draft'
+    PAYMENT_PENDING = 'payment_pending'
+    PAYMENT_CONFIRMED = 'payment_confirmed'
+    COMPLETED = 'completed'
+    CANCELLED = 'cancelled'
+
+    STATUS_CHOICES = [
+        (DRAFT, 'Rascunho'),
+        (PAYMENT_PENDING, 'Aguardando confirmação do pagamento'),
+        (PAYMENT_CONFIRMED, 'Pagamento confirmado'),
+        (COMPLETED, 'Concluída'),
+        (CANCELLED, 'Cancelada'),
+    ]
+
+    trade_request = models.OneToOneField(TradeRequest, on_delete=models.CASCADE, related_name='fulfillment')
+    agreed_proposal = models.ForeignKey(TradeProposal, on_delete=models.SET_NULL, null=True, blank=True, related_name='fulfillments')
+    payment_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    payment_method = models.CharField(max_length=20, choices=Order.PAYMENT_METHOD_CHOICES, blank=True)
+    payment_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=DRAFT)
+    payment_checkout_token = models.CharField(max_length=255, blank=True)
+    payment_payload = models.JSONField(default=dict, blank=True)
+    payment_confirmed_at = models.DateTimeField(blank=True, null=True)
+    delivery_method = models.CharField(max_length=20, choices=Order.DELIVERY_METHOD_CHOICES, default=Order.TO_AGREE)
+    recipient_name = models.CharField(max_length=255, blank=True)
+    recipient_phone = models.CharField(max_length=20, blank=True)
+    postal_code = models.CharField(max_length=9, blank=True)
+    street = models.CharField(max_length=255, blank=True)
+    number = models.CharField(max_length=20, blank=True)
+    complement = models.CharField(max_length=100, blank=True)
+    neighborhood = models.CharField(max_length=120, blank=True)
+    city = models.CharField(max_length=120, blank=True)
+    state = models.CharField(max_length=2, blank=True)
+    notes = models.TextField(blank=True)
+    confirmed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super().clean()
+
+        if self.trade_request_id and self.trade_request.status == TradeRequest.CANCELLED:
+            raise ValidationError({'trade_request': 'Não é possível registrar execução para uma troca cancelada.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'Execução da troca #{self.trade_request_id}'
 
 
 class TradeMessage(models.Model):
@@ -465,3 +553,48 @@ class TradeMessage(models.Model):
 
     def __str__(self):
         return f'Mensagem da troca #{self.trade_request_id}'
+
+
+class TradeDelivery(models.Model):
+    DRAFT = 'draft'
+    SENT = 'sent'
+    DELIVERED = 'delivered'
+    CANCELLED = 'cancelled'
+
+    STATUS_CHOICES = [
+        (DRAFT, 'Rascunho'),
+        (SENT, 'Enviado'),
+        (DELIVERED, 'Entregue'),
+        (CANCELLED, 'Cancelada'),
+    ]
+
+    trade_request = models.ForeignKey(TradeRequest, on_delete=models.CASCADE, related_name='deliveries')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trade_deliveries')
+    delivery_method = models.CharField(max_length=20, choices=Order.DELIVERY_METHOD_CHOICES, default=Order.TO_AGREE)
+    recipient_name = models.CharField(max_length=255, blank=True)
+    recipient_phone = models.CharField(max_length=20, blank=True)
+    postal_code = models.CharField(max_length=9, blank=True)
+    street = models.CharField(max_length=255, blank=True)
+    number = models.CharField(max_length=20, blank=True)
+    complement = models.CharField(max_length=100, blank=True)
+    neighborhood = models.CharField(max_length=120, blank=True)
+    city = models.CharField(max_length=120, blank=True)
+    state = models.CharField(max_length=2, blank=True)
+    notes = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=DRAFT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        super().clean()
+        if self.trade_request_id and self.user_id:
+            allowed = {self.trade_request.requester_id, self.trade_request.counterparty_id}
+            if self.user_id not in allowed:
+                raise ValidationError({'user': 'Somente participantes da negociação podem registrar entregas.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'Entrega de {self.user.username} para troca #{self.trade_request_id}'

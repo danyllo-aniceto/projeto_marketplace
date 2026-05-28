@@ -14,30 +14,112 @@
         </div>
     {% endif %}
 
-    {% if trade_requests %}
-        <div class="products-grid">
-            {% for trade_request in trade_requests %}
-                <div class="product-card">
-                    <div class="product-info">
-                        <h3 class="product-title">{{ trade_request.listing.title }}</h3>
-                        <p class="product-description">{{ trade_request.initial_message|default:'Sem mensagem inicial.'|truncatechars:120 }}</p>
-                        <div class="product-details">
-                            <span><span class="material-icons">person</span> {{ trade_request.requester.username }}</span>
-                            <span><span class="material-icons">store</span> {{ trade_request.counterparty.username }}</span>
-                        </div>
-                        <div class="product-price">{{ trade_request.get_status_display }}</div>
-                        <div class="product-actions">
-                            <a href="{% url 'trade_request_detail' trade_request.id %}" class="btn-details">Abrir negociação</a>
+    <div class="cart-tabs" style="margin-bottom: 1.5rem;">
+        <button class="cart-tab active" data-target="sent-panel">Enviadas ({{ sent_count }})</button>
+        <button class="cart-tab" data-target="received-panel">Recebidas ({{ received_count }})</button>
+    </div>
+
+    <div id="sent-panel" class="cart-panel">
+        {% if sent_page.object_list %}
+            <div class="products-grid">
+                {% for trade_request in sent_page %}
+                    <div class="product-card">
+                        <div class="product-info">
+                            <h3 class="product-title">{{ trade_request.listing.title }}</h3>
+                            <p class="product-description">{{ trade_request.initial_message|default:'Sem mensagem inicial.'|truncatechars:120 }}</p>
+                            <div class="product-details">
+                                <span><span class="material-icons">person</span> Você</span>
+                                <span><span class="material-icons">store</span> {{ trade_request.counterparty.username }}</span>
+                            </div>
+                            <div class="product-price">{{ trade_request.get_status_display }}</div>
+                            <div class="product-actions">
+                                <a href="{% url 'trade_request_detail' trade_request.id %}" class="btn-details">Abrir negociação</a>
+                            </div>
                         </div>
                     </div>
+                {% endfor %}
+            </div>
+            {% if sent_page.paginator.num_pages > 1 %}
+                <div style="display:flex; gap: 0.75rem; justify-content:center; margin-top: 1.5rem; flex-wrap: wrap;">
+                    {% if sent_page.has_previous %}
+                        <a href="?sent_page={{ sent_page.previous_page_number }}&received_page={{ received_page.number }}&tab=sent" class="btn-details">Anterior</a>
+                    {% endif %}
+                    <span style="align-self:center;">Página {{ sent_page.number }} de {{ sent_page.paginator.num_pages }}</span>
+                    {% if sent_page.has_next %}
+                        <a href="?sent_page={{ sent_page.next_page_number }}&received_page={{ received_page.number }}&tab=sent" class="btn-details">Próxima</a>
+                    {% endif %}
                 </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="empty-state">
-            <p><span class="material-icons" style="font-size: 3rem; color: #999;">handshake</span></p>
-            <p>Você ainda não possui negociações de troca.</p>
-        </div>
-    {% endif %}
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <p><span class="material-icons" style="font-size: 3rem; color: #999;">send</span></p>
+                <p>Você ainda não enviou propostas de troca.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div id="received-panel" class="cart-panel" style="display:none;">
+        {% if received_page.object_list %}
+            <div class="products-grid">
+                {% for trade_request in received_page %}
+                    <div class="product-card">
+                        <div class="product-info">
+                            <h3 class="product-title">{{ trade_request.listing.title }}</h3>
+                            <p class="product-description">{{ trade_request.initial_message|default:'Sem mensagem inicial.'|truncatechars:120 }}</p>
+                            <div class="product-details">
+                                <span><span class="material-icons">person</span> {{ trade_request.requester.username }}</span>
+                                <span><span class="material-icons">store</span> Você</span>
+                            </div>
+                            <div class="product-price">{{ trade_request.get_status_display }}</div>
+                            <div class="product-actions">
+                                <a href="{% url 'trade_request_detail' trade_request.id %}" class="btn-details">Analisar solicitação</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            {% if received_page.paginator.num_pages > 1 %}
+                <div style="display:flex; gap: 0.75rem; justify-content:center; margin-top: 1.5rem; flex-wrap: wrap;">
+                    {% if received_page.has_previous %}
+                        <a href="?sent_page={{ sent_page.number }}&received_page={{ received_page.previous_page_number }}&tab=received" class="btn-details">Anterior</a>
+                    {% endif %}
+                    <span style="align-self:center;">Página {{ received_page.number }} de {{ received_page.paginator.num_pages }}</span>
+                    {% if received_page.has_next %}
+                        <a href="?sent_page={{ sent_page.number }}&received_page={{ received_page.next_page_number }}&tab=received" class="btn-details">Próxima</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <p><span class="material-icons" style="font-size: 3rem; color: #999;">inbox</span></p>
+                <p>Você ainda não recebeu propostas de troca.</p>
+            </div>
+        {% endif %}
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const tabs = document.querySelectorAll('.cart-tab');
+    const panels = document.querySelectorAll('.cart-panel');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(item => item.classList.remove('active'));
+            tab.classList.add('active');
+            panels.forEach(panel => panel.style.display = 'none');
+            const target = document.getElementById(tab.dataset.target);
+            if (target) target.style.display = 'block';
+        });
+    });
+
+    const initialTab = new URLSearchParams(window.location.search).get('tab');
+    if (initialTab === 'received') {
+        const receivedTab = document.querySelector('[data-target="received-panel"]');
+        if (receivedTab) receivedTab.click();
+    }
+});
+</script>
 {% endblock %}

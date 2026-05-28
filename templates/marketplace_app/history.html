@@ -13,6 +13,8 @@
     <div class="cart-tabs" style="margin-bottom: 1.5rem;">
         <button class="cart-tab active" data-target="purchases-panel">Compras ({{ purchase_count }})</button>
         <button class="cart-tab" data-target="sales-panel">Vendas ({{ sale_count }})</button>
+        <button class="cart-tab" data-target="sent-trades-panel">Trocas solicitadas ({{ sent_trade_count }})</button>
+        <button class="cart-tab" data-target="received-trades-panel">Trocas recebidas ({{ received_trade_count }})</button>
     </div>
 
     <div id="purchases-panel" class="cart-panel">
@@ -109,6 +111,117 @@
             </div>
         {% endif %}
     </div>
+
+    <div id="sent-trades-panel" class="cart-panel" style="display:none;">
+        {% if sent_trades_page_obj.object_list %}
+            {% for trade in sent_trades_page_obj %}
+                <div class="summary-card" style="margin-bottom: 1rem;">
+                    <div style="display:flex; justify-content:space-between; gap: 1rem; flex-wrap: wrap;">
+                        <div>
+                            <h3 style="margin-bottom: 0.25rem;">Solicitação #{{ trade.trade_request.id }}</h3>
+                            <p style="margin: 0; color: var(--text-muted);">{{ trade.trade_request.created_at|date:'d/m/Y H:i' }}</p>
+                        </div>
+                        <div>
+                            <p style="margin: 0;"><strong>Com:</strong> {{ trade.partner.username }}</p>
+                            <p style="margin: 0;"><strong>Status:</strong> {{ trade.trade_request.get_status_display }}</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.75rem;">
+                        <p style="margin-bottom: 0.5rem;"><strong>Anúncio:</strong> {{ trade.trade_request.listing.title }}</p>
+                        {% if trade.trade_request.listing.trade_suggestions %}
+                            <p style="margin-bottom: 0.5rem;"><strong>Sugestões do anúncio:</strong> {{ trade.trade_request.listing.trade_suggestions }}</p>
+                        {% endif %}
+                        <p style="margin-bottom: 0.5rem;"><strong>Mensagem inicial:</strong> {{ trade.trade_request.initial_message|default:'-' }}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Propostas:</strong> {{ trade.proposal_count }}</p>
+                        {% if trade.latest_proposal %}
+                            <p style="margin-bottom: 0.5rem;"><strong>Última proposta:</strong> {{ trade.latest_proposal.item_description|default:'-' }}</p>
+                            <p style="margin-bottom: 0.5rem;"><strong>Volta em dinheiro:</strong> R$ {{ trade.latest_proposal.cash_amount|floatformat:2 }}</p>
+                        {% endif %}
+                        {% if trade.has_cash %}
+                            <p style="margin-bottom: 0.5rem;"><strong>Checkout de troca:</strong> valor adicional aguardando confirmação</p>
+                        {% endif %}
+                    </div>
+                    <div style="margin-top: 0.75rem; display:flex; gap: 0.75rem; flex-wrap: wrap;">
+                        <a href="{% url 'trade_request_detail' trade.trade_request.id %}" class="btn-details">Ver negociação</a>
+                        {% if trade.trade_request.status == 'approved' %}
+                            <a href="{% url 'trade_checkout' trade.trade_request.id %}" class="btn-secondary">Ir para checkout</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+
+            {% if sent_trades_page_obj.paginator.num_pages > 1 %}
+                <div style="display:flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin: 1.5rem 0;">
+                    {% if sent_trades_page_obj.has_previous %}
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.previous_page_number }}&received_trade_page={{ received_trades_page_obj.number }}&tab=sent-trades" class="btn-details">Anterior</a>
+                    {% endif %}
+                    <span style="align-self:center;">Página {{ sent_trades_page_obj.number }} de {{ sent_trades_page_obj.paginator.num_pages }}</span>
+                    {% if sent_trades_page_obj.has_next %}
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.next_page_number }}&received_trade_page={{ received_trades_page_obj.number }}&tab=sent-trades" class="btn-details">Próxima</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <p><span class="material-icons" style="font-size: 3rem; color: #999;">send</span></p>
+                <p>Você ainda não enviou trocas.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div id="received-trades-panel" class="cart-panel" style="display:none;">
+        {% if received_trades_page_obj.object_list %}
+            {% for trade in received_trades_page_obj %}
+                <div class="summary-card" style="margin-bottom: 1rem;">
+                    <div style="display:flex; justify-content:space-between; gap: 1rem; flex-wrap: wrap;">
+                        <div>
+                            <h3 style="margin-bottom: 0.25rem;">Solicitação #{{ trade.trade_request.id }}</h3>
+                            <p style="margin: 0; color: var(--text-muted);">{{ trade.trade_request.created_at|date:'d/m/Y H:i' }}</p>
+                        </div>
+                        <div>
+                            <p style="margin: 0;"><strong>De:</strong> {{ trade.partner.username }}</p>
+                            <p style="margin: 0;"><strong>Status:</strong> {{ trade.trade_request.get_status_display }}</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.75rem;">
+                        <p style="margin-bottom: 0.5rem;"><strong>Anúncio:</strong> {{ trade.trade_request.listing.title }}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Mensagem inicial:</strong> {{ trade.trade_request.initial_message|default:'-' }}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Propostas:</strong> {{ trade.proposal_count }}</p>
+                        {% if trade.latest_proposal %}
+                            <p style="margin-bottom: 0.5rem;"><strong>Última proposta:</strong> {{ trade.latest_proposal.item_description|default:'-' }}</p>
+                            <p style="margin-bottom: 0.5rem;"><strong>Volta em dinheiro:</strong> R$ {{ trade.latest_proposal.cash_amount|floatformat:2 }}</p>
+                        {% endif %}
+                        {% if trade.trade_request.listing.trade_suggestions %}
+                            <p style="margin-bottom: 0.5rem;"><strong>Sugestões do anúncio:</strong> {{ trade.trade_request.listing.trade_suggestions }}</p>
+                        {% endif %}
+                    </div>
+                    <div style="margin-top: 0.75rem; display:flex; gap: 0.75rem; flex-wrap: wrap;">
+                        <a href="{% url 'trade_request_detail' trade.trade_request.id %}" class="btn-details">Analisar solicitação</a>
+                        {% if trade.trade_request.status == 'approved' %}
+                            <a href="{% url 'trade_checkout' trade.trade_request.id %}" class="btn-secondary">Ir para checkout</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+
+            {% if received_trades_page_obj.paginator.num_pages > 1 %}
+                <div style="display:flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin: 1.5rem 0;">
+                    {% if received_trades_page_obj.has_previous %}
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.number }}&received_trade_page={{ received_trades_page_obj.previous_page_number }}&tab=received-trades" class="btn-details">Anterior</a>
+                    {% endif %}
+                    <span style="align-self:center;">Página {{ received_trades_page_obj.number }} de {{ received_trades_page_obj.paginator.num_pages }}</span>
+                    {% if received_trades_page_obj.has_next %}
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.number }}&received_trade_page={{ received_trades_page_obj.next_page_number }}&tab=received-trades" class="btn-details">Próxima</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <p><span class="material-icons" style="font-size: 3rem; color: #999;">inbox</span></p>
+                <p>Você ainda não recebeu trocas.</p>
+            </div>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
 
@@ -133,6 +246,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (initialTab === 'vendas') {
         const salesTab = document.querySelector('[data-target="sales-panel"]');
         if (salesTab) salesTab.click();
+    } else if (initialTab === 'sent-trades') {
+        const sentTradeTab = document.querySelector('[data-target="sent-trades-panel"]');
+        if (sentTradeTab) sentTradeTab.click();
+    } else if (initialTab === 'received-trades') {
+        const receivedTradeTab = document.querySelector('[data-target="received-trades-panel"]');
+        if (receivedTradeTab) receivedTradeTab.click();
     }
 });
 </script>

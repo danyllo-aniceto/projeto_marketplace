@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Category, Listing, Order, OrderItem
+from .models import Category, Listing, Order, OrderItem, TradeProposal, TradeRequest
 
 
 class HistoryViewTests(TestCase):
@@ -89,3 +89,60 @@ class HistoryViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['purchases_page_obj'].number, 2)
+
+    def test_history_separates_sent_and_received_trades(self):
+        sent_listing = Listing.objects.create(
+            seller=self.buyer,
+            category=self.category,
+            title='Tablet Semi-novo',
+            description='Outro anúncio para troca',
+            price=Decimal('900.00'),
+            listing_type=Listing.TRADE,
+            condition=Listing.USED,
+        )
+        sent_trade = TradeRequest.objects.create(
+            requester=self.seller,
+            counterparty=self.buyer,
+            listing=sent_listing,
+            initial_message='Troca solicitada por mim.',
+        )
+        TradeProposal.objects.create(
+            trade_request=sent_trade,
+            proposer=self.seller,
+            item_description='Celular usado',
+            cash_amount=Decimal('120.00'),
+            note='Minha proposta inicial.',
+        )
+
+        received_listing = Listing.objects.create(
+            seller=self.seller,
+            category=self.category,
+            title='Mouse Gamer',
+            description='Acessório',
+            price=Decimal('150.00'),
+            listing_type=Listing.TRADE,
+            condition=Listing.USED,
+        )
+        received_trade = TradeRequest.objects.create(
+            requester=self.other_buyer,
+            counterparty=self.seller,
+            listing=received_listing,
+            initial_message='Quero trocar este item.',
+        )
+        TradeProposal.objects.create(
+            trade_request=received_trade,
+            proposer=self.other_buyer,
+            item_description='Teclado mecânico',
+            cash_amount=Decimal('0.00'),
+            note='Sem volta em dinheiro.',
+        )
+
+        response = self.client.get(reverse('history'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Trocas solicitadas (1)')
+        self.assertContains(response, 'Trocas recebidas (1)')
+        self.assertContains(response, 'Troca solicitada por mim.')
+        self.assertContains(response, 'Quero trocar este item.')
+        self.assertContains(response, 'Celular usado')
+        self.assertContains(response, 'Teclado mecânico')

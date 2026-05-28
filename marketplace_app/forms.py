@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from .models import Listing, Comment, CommonProfile, StoreProfile, CartItem, Order, TradeMessage, TradeRequest, Delivery, PaymentTransaction
+from .models import Listing, Comment, CommonProfile, StoreProfile, CartItem, Order, TradeMessage, TradeRequest, TradeProposal, TradeFulfillment, Delivery, PaymentTransaction
 
 User = get_user_model()
 
@@ -66,6 +66,7 @@ class ListingForm(forms.ModelForm):
         fields = [
             'title',
             'description',
+            'trade_suggestions',
             'price',
             'category',
             'listing_type',
@@ -74,6 +75,7 @@ class ListingForm(forms.ModelForm):
         labels = {
             'title': 'Título do Anúncio',
             'description': 'Descrição',
+            'trade_suggestions': 'Sugestões para troca',
             'price': 'Preço (R$)',
             'category': 'Categoria',
             'listing_type': 'Tipo de Anúncio',
@@ -82,6 +84,7 @@ class ListingForm(forms.ModelForm):
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: iPhone 14 Pro'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 5, 'placeholder': 'Descreva detalhes do produto...'}),
+            'trade_suggestions': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Ex: notebook gamer, smartphone semi-novo...'}),
             'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
             'category': forms.Select(attrs={'class': 'form-control'}),
             'listing_type': forms.Select(attrs={'class': 'form-control'}),
@@ -490,6 +493,84 @@ class TradeStatusForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-control'}),
         label='Status da negociação',
     )
+
+
+class TradeProposalForm(forms.ModelForm):
+    images = forms.FileField(
+        required=False,
+        widget=MultipleFileInput(attrs={'accept': 'image/*'}),
+        help_text='Adicione imagens da proposta (opcional).',
+        label='Imagens'
+    )
+    class Meta:
+        model = TradeProposal
+        fields = ['item_description', 'cash_amount', 'note']
+        widgets = {
+            'item_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descreva o produto que será oferecido na troca'}),
+            'cash_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'note': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Adicione detalhes da proposta'}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        item_description = cleaned_data.get('item_description', '').strip()
+        cash_amount = cleaned_data.get('cash_amount') or 0
+
+        if not item_description and cash_amount == 0:
+            raise forms.ValidationError('Informe um produto, um valor em dinheiro ou ambos.')
+
+        return cleaned_data
+
+
+class TradeFulfillmentForm(forms.ModelForm):
+    class Meta:
+        model = TradeFulfillment
+        fields = [
+            'payment_method', 'delivery_method', 'recipient_name', 'recipient_phone', 'postal_code',
+            'street', 'number', 'complement', 'neighborhood', 'city', 'state', 'notes',
+        ]
+        widgets = {
+            'payment_method': forms.Select(attrs={'class': 'form-control'}),
+            'delivery_method': forms.Select(attrs={'class': 'form-control'}),
+            'recipient_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'recipient_phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'postal_code': forms.TextInput(attrs={'class': 'form-control'}),
+            'street': forms.TextInput(attrs={'class': 'form-control'}),
+            'number': forms.TextInput(attrs={'class': 'form-control'}),
+            'complement': forms.TextInput(attrs={'class': 'form-control'}),
+            'neighborhood': forms.TextInput(attrs={'class': 'form-control'}),
+            'city': forms.TextInput(attrs={'class': 'form-control'}),
+            'state': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 2}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+
+class TradeDeliveryForm(forms.ModelForm):
+    class Meta:
+        model = None
+        # set dynamically to avoid import cycles in module load
+        fields = [
+            'delivery_method', 'recipient_name', 'recipient_phone', 'postal_code',
+            'street', 'number', 'complement', 'neighborhood', 'city', 'state', 'notes',
+        ]
+        widgets = {
+            'delivery_method': forms.Select(attrs={'class': 'form-control'}),
+            'recipient_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'recipient_phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'postal_code': forms.TextInput(attrs={'class': 'form-control'}),
+            'street': forms.TextInput(attrs={'class': 'form-control'}),
+            'number': forms.TextInput(attrs={'class': 'form-control'}),
+            'complement': forms.TextInput(attrs={'class': 'form-control'}),
+            'neighborhood': forms.TextInput(attrs={'class': 'form-control'}),
+            'city': forms.TextInput(attrs={'class': 'form-control'}),
+            'state': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 2}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        from .models import TradeDelivery
+        super().__init__(*args, **kwargs)
+        self.Meta.model = TradeDelivery
 
 
 class PaymentTransactionForm(forms.ModelForm):
