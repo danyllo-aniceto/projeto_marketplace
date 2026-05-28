@@ -43,6 +43,34 @@
             <div class="summary-card">
                 <h3>Dados do checkout</h3>
 
+                {% if show_qr_simulation %}
+                    <div style="margin-bottom: 1rem; padding: 1rem; border: 1px solid var(--border-color); border-radius: 16px; background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0));">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap: 1rem; margin-bottom: 0.75rem;">
+                            <div>
+                                <p style="margin: 0; font-weight: 700;">QR code de simulação</p>
+                                <p style="margin: 0; color: var(--text-muted);">Escaneamento apenas ilustrativo para finalizar a compra no sistema.</p>
+                            </div>
+                            <span class="material-icons" style="font-size: 2rem; color: var(--primary-color);">qr_code_2</span>
+                        </div>
+                        <div style="display:flex; justify-content:center; margin-bottom: 0.75rem;">
+                            <div style="display:grid; grid-template-columns: repeat(21, 1fr); grid-template-rows: repeat(15, 1fr); gap: 2px; padding: 12px; background: #fff; border: 1px solid var(--border-color); border-radius: 12px; width: 100%; max-width: 320px; aspect-ratio: 1 / 1;">
+                                {% for row in qr_pattern %}
+                                    {% for cell in row %}
+                                        <div style="background: {% if cell == '1' %}#111827{% else %}#ffffff{% endif %}; border-radius: 2px;"></div>
+                                    {% endfor %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <p style="margin: 0; font-size: 0.95rem; color: var(--text-muted);">Referência da simulação: <strong>{{ qr_token }}</strong></p>
+                    </div>
+
+                    <form method="post" style="margin-bottom: 1rem;">
+                        {% csrf_token %}
+                        <input type="hidden" name="confirm_purchase" value="1">
+                        <button type="submit" class="btn-secondary" style="width: 100%;">Confirmar compra</button>
+                    </form>
+                {% endif %}
+
                 {% if buy_items %}
                 <form method="post">
                     {% csrf_token %}
@@ -117,7 +145,7 @@
                         {{ form.notes.label_tag }}
                         {{ form.notes }}
                     </div>
-                    <button type="submit" class="btn-secondary">Finalizar compra e encaminhar trocas</button>
+                    <button type="submit" class="btn-secondary">Gerar QR de simulação</button>
                 </form>
                 {% else %}
                     <p style="margin-bottom: 1rem;">Você só tem itens de troca no carrinho. Ao confirmar, as solicitações serão criadas e você será levado para a tela de negociações.</p>

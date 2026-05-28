@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Histórico{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="section-title"><span class="material-icons">history</span> Histórico</h2>
+
+    <div class="summary-card" style="margin-bottom: 1.5rem;">
+        <p style="margin: 0; color: var(--text-muted);">Acompanhe suas compras e vendas em um só lugar, com os detalhes de cada transação.</p>
+    </div>
+
+    <div class="cart-tabs" style="margin-bottom: 1.5rem;">
+        <button class="cart-tab active" data-target="purchases-panel">Compras ({{ purchase_count }})</button>
+        <button class="cart-tab" data-target="sales-panel">Vendas ({{ sale_count }})</button>
+    </div>
+
+    <div id="purchases-panel" class="cart-panel">
+        {% if purchases_page_obj.object_list %}
+            {% for order in purchases_page_obj %}
+                <div class="summary-card" style="margin-bottom: 1rem;">
+                    <div style="display:flex; justify-content:space-between; gap: 1rem; flex-wrap: wrap;">
+                        <div>
+                            <h3 style="margin-bottom: 0.25rem;">Compra #{{ order.id }}</h3>
+                            <p style="margin: 0; color: var(--text-muted);">{{ order.created_at|date:'d/m/Y H:i' }}</p>
+                        </div>
+                        <div>
+                            <p style="margin: 0;"><strong>Status:</strong> {{ order.get_status_display }}</p>
+                            <p style="margin: 0;"><strong>Total:</strong> R$ {{ order.total_amount|floatformat:2 }}</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.75rem;">
+                        <p style="margin-bottom: 0.5rem;"><strong>Pagamento:</strong> {{ order.get_payment_method_display }}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Entrega:</strong> {{ order.get_delivery_method_display }}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Itens:</strong></p>
+                        {% for item in order.items.all %}
+                            <p style="margin-left: 1rem; margin-bottom: 0.25rem;">{{ item.title_snapshot }} - {{ item.seller.username }} - R$ {{ item.unit_price_snapshot|floatformat:2 }}</p>
+                        {% empty %}
+                            <p style="margin-left: 1rem;">Nenhum item encontrado.</p>
+                        {% endfor %}
+                    </div>
+                    <div style="margin-top: 0.75rem;">
+                        <a href="{% url 'order_detail' order.id %}" class="btn-details">Ver detalhes da compra</a>
+                    </div>
+                </div>
+            {% endfor %}
+
+            {% if purchases_page_obj.paginator.num_pages > 1 %}
+                <div style="display:flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin: 1.5rem 0;">
+                    {% if purchases_page_obj.has_previous %}
+                        <a href="?purchase_page={{ purchases_page_obj.previous_page_number }}&sale_page={{ sales_page_obj.number }}&tab=compras" class="btn-details">Anterior</a>
+                    {% endif %}
+                    <span style="align-self:center;">Página {{ purchases_page_obj.number }} de {{ purchases_page_obj.paginator.num_pages }}</span>
+                    {% if purchases_page_obj.has_next %}
+                        <a href="?purchase_page={{ purchases_page_obj.next_page_number }}&sale_page={{ sales_page_obj.number }}&tab=compras" class="btn-details">Próxima</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <p><span class="material-icons" style="font-size: 3rem; color: #999;">shopping_bag</span></p>
+                <p>Você ainda não possui compras registradas.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div id="sales-panel" class="cart-panel" style="display:none;">
+        {% if sales_page_obj.object_list %}
+            {% for sale in sales_page_obj %}
+                <div class="summary-card" style="margin-bottom: 1rem;">
+                    <div style="display:flex; justify-content:space-between; gap: 1rem; flex-wrap: wrap;">
+                        <div>
+                            <h3 style="margin-bottom: 0.25rem;">Venda #{{ sale.id }}</h3>
+                            <p style="margin: 0; color: var(--text-muted);">{{ sale.order.created_at|date:'d/m/Y H:i' }}</p>
+                        </div>
+                        <div>
+                            <p style="margin: 0;"><strong>Comprador:</strong> {{ sale.order.buyer.username }}</p>
+                            <p style="margin: 0;"><strong>Valor:</strong> R$ {{ sale.unit_price_snapshot|floatformat:2 }}</p>
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.75rem;">
+                        <p style="margin-bottom: 0.5rem;"><strong>Produto:</strong> {{ sale.title_snapshot }}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Quantidade:</strong> {{ sale.quantity }}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Pedido vinculado:</strong> #{{ sale.order.id }}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Pagamento:</strong> {{ sale.order.get_payment_method_display }}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Status do pedido:</strong> {{ sale.order.get_status_display }}</p>
+                    </div>
+                    <div style="margin-top: 0.75rem;">
+                        <a href="{% url 'order_detail' sale.order.id %}" class="btn-details">Ver pedido da venda</a>
+                    </div>
+                </div>
+            {% endfor %}
+
+            {% if sales_page_obj.paginator.num_pages > 1 %}
+                <div style="display:flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin: 1.5rem 0;">
+                    {% if sales_page_obj.has_previous %}
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.previous_page_number }}&tab=vendas" class="btn-details">Anterior</a>
+                    {% endif %}
+                    <span style="align-self:center;">Página {{ sales_page_obj.number }} de {{ sales_page_obj.paginator.num_pages }}</span>
+                    {% if sales_page_obj.has_next %}
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.next_page_number }}&tab=vendas" class="btn-details">Próxima</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <p><span class="material-icons" style="font-size: 3rem; color: #999;">sell</span></p>
+                <p>Você ainda não possui vendas registradas.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const tabs = document.querySelectorAll('.cart-tab');
+    const panels = document.querySelectorAll('.cart-panel');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(item => item.classList.remove('active'));
+            tab.classList.add('active');
+
+            panels.forEach(panel => panel.style.display = 'none');
+            const target = document.getElementById(tab.dataset.target);
+            if (target) target.style.display = 'block';
+        });
+    });
+
+    const initialTab = new URLSearchParams(window.location.search).get('tab');
+    if (initialTab === 'vendas') {
+        const salesTab = document.querySelector('[data-target="sales-panel"]');
+        if (salesTab) salesTab.click();
+    }
+});
+</script>
+{% endblock %}

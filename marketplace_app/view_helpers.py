@@ -101,15 +101,11 @@ def process_buy_checkout(request, user, buy_items, trade_items, form):
             gateway=PaymentTransaction.MERCADO_PAGO,
             amount=order_total,
             external_reference=f'order-{order.pk}',
+            status=PaymentTransaction.APPROVED,
         )
 
-        preference_response = create_mercado_pago_preference(request, order, order.items.all())
-        if preference_response:
-            payment_transaction.preference_id = preference_response.get('id', '')
-            payment_transaction.checkout_url = preference_response.get('init_point', '')
-            payment_transaction.payload = preference_response
-            payment_transaction.status = PaymentTransaction.PROCESSING
-            payment_transaction.save(update_fields=['preference_id', 'checkout_url', 'payload', 'status'])
+        order.status = Order.PAID
+        order.save(update_fields=['status'])
 
         created_trade_requests = []
         for item in trade_items:
