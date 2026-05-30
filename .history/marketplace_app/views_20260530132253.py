@@ -109,9 +109,9 @@ def _is_trade_final(trade_request):
 
 
 def _get_trade_next_actor(trade_request, latest_proposal=None):
-    # If there is no proposal yet, the counterparty should act first (can accept/reject)
+    # The first proposal should be created by the user who initiated the solicitation
     if latest_proposal is None:
-        return trade_request.counterparty
+        return trade_request.requester
     # If the latest proposer was the requester, it's the counterparty's turn, and vice-versa
     return trade_request.counterparty if latest_proposal.proposer_id == trade_request.requester_id else trade_request.requester
 

@@ -109,9 +109,9 @@ def _is_trade_final(trade_request):
 
 
 def _get_trade_next_actor(trade_request, latest_proposal=None):
-    # If there is no proposal yet, the counterparty should act first (can accept/reject)
+    # The first proposal should be created by the user who initiated the solicitation
     if latest_proposal is None:
-        return trade_request.counterparty
+        return trade_request.requester
     # If the latest proposer was the requester, it's the counterparty's turn, and vice-versa
     return trade_request.counterparty if latest_proposal.proposer_id == trade_request.requester_id else trade_request.requester
 
@@ -150,6 +150,7 @@ def _get_trade_proposal_state(request, trade_request, proposals):
     }
 
 
+@login_required
 # Mercado Pago preference creation and other helpers live in view_helpers.py
 
 # Trade-related views/helpers were moved to marketplace_app.domains.trades
@@ -246,137 +247,3 @@ def delivery_update_api(request, order_pk):
             status = 400
 
     return JsonResponse(result, status=status)
-
-
-@login_required
-def orders_view(request):
-    orders = Order.objects.prefetch_related('items__listing', 'items__seller').select_related('delivery', 'payment_transaction').filter(buyer=request.user).order_by('-created_at')
-    return render(request, 'marketplace_app/orders.html', {
-        'orders': orders,
-    })
-
-
-@login_required
-def history_view(request):
-    purchase_page_number = request.GET.get('purchase_page') or 1
-    sale_page_number = request.GET.get('sale_page') or 1
-    sent_trade_page_number = request.GET.get('sent_trade_page') or 1
-    received_trade_page_number = request.GET.get('received_trade_page') or 1
-
-    purchases_queryset = Order.objects.prefetch_related(
-        'items__listing',
-        'items__seller',
-    ).select_related(
-        'delivery',
-        'payment_transaction',
-    ).filter(
-        buyer=request.user,
-    ).order_by('-created_at')
-
-    sales_queryset = OrderItem.objects.select_related(
-        'order',
-        'order__buyer',
-        'listing',
-        'seller',
-    ).filter(
-        seller=request.user,
-    ).order_by('-order__created_at', '-id')
-
-    purchases_paginator = Paginator(purchases_queryset, 6)
-    sales_paginator = Paginator(sales_queryset, 8)
-    sent_trades_queryset = TradeRequest.objects.select_related(
-        'listing',
-        'requester',
-        'counterparty',
-    ).prefetch_related(
-        models.Prefetch('proposals', queryset=TradeProposal.objects.select_related('proposer').order_by('-created_at')),
-    ).filter(
-        requester=request.user,
-    ).order_by('-created_at')
-
-    received_trades_queryset = TradeRequest.objects.select_related(
-        'listing',
-        'requester',
-        'counterparty',
-    ).prefetch_related(
-        models.Prefetch('proposals', queryset=TradeProposal.objects.select_related('proposer').order_by('-created_at')),
-    ).filter(
-        counterparty=request.user,
-    ).order_by('-created_at')
-
-    def build_trade_card(trade_request, role):
-        proposals = list(trade_request.proposals.all())
-        latest_proposal = proposals[0] if proposals else None
-        fulfillment = getattr(trade_request, 'fulfillment', None)
-        cash_amount = fulfillment.payment_amount if fulfillment else (latest_proposal.cash_amount if latest_proposal else 0)
-        return {
-            'trade_request': trade_request,
-            'role': role,
-            'partner': trade_request.counterparty if role == 'requested' else trade_request.requester,
-            'proposal_count': len(proposals),
-            'latest_proposal': latest_proposal,
-            'cash_amount': cash_amount,
-            'has_cash': cash_amount > 0,
-            'fulfillment': fulfillment,
-            'is_finished': trade_request.status in TRADE_FINAL_STATUSES,
-        }
-
-    sent_trade_cards = [build_trade_card(trade_request, 'requested') for trade_request in sent_trades_queryset]
-    received_trade_cards = [build_trade_card(trade_request, 'received') for trade_request in received_trades_queryset]
-
-    sent_trades_paginator = Paginator(sent_trade_cards, 6)
-    received_trades_paginator = Paginator(received_trade_cards, 6)
-
-    purchases_page_obj = purchases_paginator.get_page(purchase_page_number)
-    sales_page_obj = sales_paginator.get_page(sale_page_number)
-    sent_trades_page_obj = sent_trades_paginator.get_page(sent_trade_page_number)
-    received_trades_page_obj = received_trades_paginator.get_page(received_trade_page_number)
-
-    return render(request, 'marketplace_app/history.html', {
-        'purchases_page_obj': purchases_page_obj,
-        'sales_page_obj': sales_page_obj,
-        'sent_trades_page_obj': sent_trades_page_obj,
-        'received_trades_page_obj': received_trades_page_obj,
-        'purchase_count': purchases_queryset.count(),
-        'sale_count': sales_queryset.count(),
-        'sent_trade_count': sent_trades_queryset.count(),
-        'received_trade_count': received_trades_queryset.count(),
-    })
-
-
-@login_required
-def order_detail(request, pk):
-    order = get_object_or_404(Order.objects.prefetch_related('items__listing', 'items__seller').select_related('delivery', 'payment_transaction'), pk=pk, buyer=request.user)
-    return render(request, 'marketplace_app/order_detail.html', {
-        'order': order,
-        'payment_transaction': getattr(order, 'payment_transaction', None),
-        'delivery': getattr(order, 'delivery', None),
-    })
-
-
-@login_required
-def delivery_update(request, pk):
-    order = get_object_or_404(Order.objects.select_related('delivery'), pk=pk)
-
-    if not request.user.is_staff:
-        return redirect('order_detail', pk=pk)
-
-    delivery = getattr(order, 'delivery', None)
-    if delivery is None:
-        messages.error(request, 'Este pedido ainda não possui entrega registrada.')
-        return redirect('order_detail', pk=pk)
-
-    if request.method == 'POST':
-        form = DeliveryForm(request.POST, instance=delivery)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Entrega atualizada com sucesso.')
-            return redirect('order_detail', pk=pk)
-    else:
-        form = DeliveryForm(instance=delivery)
-
-    return render(request, 'marketplace_app/delivery_update.html', {
-        'order': order,
-        'form': form,
-        'delivery': delivery,
-    })

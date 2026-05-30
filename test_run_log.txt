@@ -1,0 +1,39 @@
+Using existing test database for alias 'default' ('test_marketplace_db')...
+test_proposal_image_upload_and_delivery_flow (marketplace_app.tests_trade_flow.TradeFlowTests.test_proposal_image_upload_and_delivery_flow) ... FAIL
+
+======================================================================
+FAIL: test_proposal_image_upload_and_delivery_flow (marketplace_app.tests_trade_flow.TradeFlowTests.test_proposal_image_upload_and_delivery_flow)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\danyl\OneDrive\Documents\marketplace\projeto_marketplace\marketplace_app\tests_trade_flow.py", line 181, in test_proposal_image_upload_and_delivery_flow
+    self.assertIsNotNone(latest)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+AssertionError: unexpectedly None
+
+----------------------------------------------------------------------
+Ran 1 test in 16.320s
+
+FAILED (failures=1)
+Preserving test database for alias 'default' ('test_marketplace_db')...
+Found 1 test(s).
+Operations to perform:
+  Synchronize unmigrated apps: messages, staticfiles
+  Apply all migrations: admin, auth, contenttypes, marketplace_app, sessions
+Running pre-migrate handlers for application admin
+Running pre-migrate handlers for application auth
+Running pre-migrate handlers for application contenttypes
+Running pre-migrate handlers for application sessions
+Running pre-migrate handlers for application marketplace_app
+Synchronizing apps without migrations:
+  Creating tables...
+    Running deferred SQL...
+Running migrations:
+  No migrations to apply.
+  Your models in app(s): 'marketplace_app' have changes that are not yet reflected in a migration, and so won't be applied.
+  Run 'manage.py makemigrations' to make new migrations, and then re-run 'manage.py migrate' to apply them.
+Running post-migrate handlers for application admin
+Running post-migrate handlers for application auth
+Running post-migrate handlers for application contenttypes
+Running post-migrate handlers for application sessions
+Running post-migrate handlers for application marketplace_app
+System check identified no issues (0 silenced).
