@@ -154,39 +154,3 @@ class AuthAndModelTests(TestCase):
         self.assertContains(response, 'Selecionar Imagens')
         self.assertContains(response, 'id_listing_type')
         self.assertContains(response, 'id_trade_suggestions')
-
-    def test_cannot_add_own_listing_to_cart(self):
-        listing = Listing.objects.create(
-            seller=self.user,
-            category=self.category,
-            title='Produto próprio',
-            description='Desc',
-            price=10,
-            listing_type=Listing.SALE,
-            condition=Listing.NEW,
-        )
-
-        self.client.login(username='u1', password='Pwd12345!')
-        response = self.client.get(reverse('add_to_cart', args=[listing.pk]), follow=True)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Você não pode adicionar ao carrinho um anúncio criado por você.')
-        self.assertEqual(CartItem.objects.filter(cart__user=self.user, listing=listing).count(), 0)
-
-    def test_detail_page_hides_cart_action_for_own_listing(self):
-        listing = Listing.objects.create(
-            seller=self.user,
-            category=self.category,
-            title='Produto próprio detalhe',
-            description='Desc',
-            price=10,
-            listing_type=Listing.SALE,
-            condition=Listing.NEW,
-        )
-
-        self.client.login(username='u1', password='Pwd12345!')
-        response = self.client.get(reverse('listing_detail', args=[listing.pk]))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Seu anúncio')
-        self.assertNotContains(response, 'Adicionar ao Carrinho')

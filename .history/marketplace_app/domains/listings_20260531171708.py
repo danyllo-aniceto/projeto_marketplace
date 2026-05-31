@@ -149,20 +149,8 @@ def home(request):
 @login_required
 def my_listings(request):
     listings = request.user.listings.order_by('-created_at')
-    locked_listing_ids = set(
-        OrderItem.objects.filter(
-            listing__seller=request.user,
-            order__status__in=PROCESSING_ORDER_STATUSES,
-        ).values_list('listing_id', flat=True)
-    ) | set(
-        TradeRequest.objects.filter(
-            listing__seller=request.user,
-            status__in=PROCESSING_TRADE_STATUSES,
-        ).values_list('listing_id', flat=True)
-    )
     return render(request, 'marketplace_app/my_listings.html', {
         'listings': listings,
-        'locked_listing_ids': locked_listing_ids,
     })
 
 

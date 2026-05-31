@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Editar Anúncio - Tech Hub{% endblock %}
+{% block title %}Criar Anúncio - Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -8,7 +8,7 @@
         <a href="{% url 'my_listings' %}" class="listing-back-link" aria-label="Voltar para meus anúncios">
             <span class="material-icons">arrow_back</span>
         </a>
-        <h2 class="section-title listing-page-title"><span class="material-icons">edit</span> Editar Anúncio</h2>
+        <h2 class="section-title listing-page-title"><span class="material-icons">add_circle</span> Criar Novo Anúncio</h2>
     </div>
 
     <div class="listing-form-container">
@@ -45,7 +45,7 @@
                 </div>
 
                 <div class="form-row">
-                    <div class="form-group" id="trade-suggestions-row">
+                    <div class="form-group">
                         {{ form.trade_suggestions.label_tag }}
                         {{ form.trade_suggestions }}
                         {% if form.trade_suggestions.errors %}
@@ -55,7 +55,7 @@
                 </div>
 
                 <div class="form-row" id="listing-price-row">
-                    <div class="form-group" id="price-form-group">
+                    <div class="form-group">
                         {{ form.price.label_tag }}
                         {{ form.price }}
                         {% if form.price.errors %}
@@ -99,9 +99,6 @@
                         </div>
                         <p class="form-help-text">{{ form.images.help_text }}</p>
                         <p class="form-help-text selected-images-count" id="selected-images-count">Nenhuma imagem selecionada.</p>
-                        {% if listing.images.exists %}
-                            <p class="form-help-text">Imagens atuais: {{ listing.images.count }}</p>
-                        {% endif %}
                         {% if form.images.errors %}
                             <div class="error-message">{{ form.images.errors }}</div>
                         {% endif %}
@@ -116,20 +113,21 @@
 
                 <div class="form-actions">
                     <button type="submit" class="btn-secondary">
-                        <span class="material-icons">save</span> Salvar alterações
+                        <span class="material-icons">publish</span> Publicar Anúncio
                     </button>
                 </div>
             </form>
         </div>
 
         <div class="listing-info-card">
-            <h3><span class="material-icons">info</span> Dicas de Edição</h3>
+            <h3><span class="material-icons">info</span> Dicas para um Bom Anúncio</h3>
             <ul>
-                <li><strong>Venda:</strong> mantenha o preço preenchido.</li>
-                <li><strong>Troca:</strong> informe as sugestões de troca e o preço será ocultado.</li>
-                <li><strong>Fotos:</strong> você pode adicionar novas imagens ao anúncio.</li>
-                <li><strong>Condição:</strong> mantenha o estado correto do produto.</li>
-                <li><strong>Tipo de anúncio:</strong> escolha entre venda ou troca, conforme o anúncio.</li>
+                <li><strong>Título descritivo:</strong> Use termos específicos para melhor busca</li>
+                <li><strong>Preço justo:</strong> Pesquise produtos similares no mercado</li>
+                <li><strong>Descrição detalhada:</strong> Mencione marca, modelo, ano e condição</li>
+                <li><strong>Fotos claras:</strong> Use boa iluminação e envie mais de uma imagem se possível</li>
+                <li><strong>Categoria correta:</strong> Ajuda vendedores a encontrar seu produto</li>
+                <li><strong>Tipo de anúncio:</strong> Escolha entre Venda ou Troca</li>
             </ul>
         </div>
     </div>
@@ -256,6 +254,7 @@
         margin: 2.2rem 0 1.5rem;
     }
 }
+
 </style>
 
 <script>
@@ -263,11 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const priceInput = document.querySelector('.currency-mask');
     const imagesInput = document.getElementById('id_images');
     const imagesCount = document.getElementById('selected-images-count');
-    const listingTypeInput = document.getElementById('id_listing_type');
-    const priceRow = document.getElementById('listing-price-row');
-    const priceGroup = document.getElementById('price-form-group');
-    const tradeSuggestionsRow = document.getElementById('trade-suggestions-row');
-    const tradeSuggestionsInput = document.getElementById('id_trade_suggestions');
 
     const formatCurrency = (value) => {
         const digits = value.replace(/\D/g, '');
@@ -309,13 +303,19 @@ document.addEventListener('DOMContentLoaded', () => {
         updateImagesCount();
     }
 
+    const listingTypeInput = document.getElementById('id_listing_type');
+    const priceRow = document.getElementById('listing-price-row');
+    const tradeRow = document.getElementById('listing-trade-row');
+    const tradeSuggestionsGroup = document.querySelector('#id_trade_suggestions')?.closest('.form-row');
+
     const toggleFields = () => {
         const listingType = listingTypeInput ? listingTypeInput.value : 'sale';
         const isTrade = listingType === 'trade';
 
-        if (priceRow && priceGroup) {
-            priceGroup.classList.toggle('listing-field-hidden', isTrade);
+        if (priceRow) {
+            priceRow.classList.toggle('listing-field-hidden', isTrade);
             if (isTrade && priceInput) {
+                // Clear any residual value to avoid backend parse errors
                 priceInput.value = '';
                 priceInput.removeAttribute('required');
             } else if (priceInput) {
@@ -323,12 +323,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (tradeSuggestionsRow) {
-            tradeSuggestionsRow.classList.toggle('listing-field-hidden', !isTrade);
+        if (tradeSuggestionsGroup) {
+            tradeSuggestionsGroup.classList.toggle('listing-field-hidden', !isTrade);
         }
 
-        if (tradeSuggestionsInput) {
-            tradeSuggestionsInput.required = isTrade;
+        const tradeTextarea = document.getElementById('id_trade_suggestions');
+        if (tradeTextarea) {
+            tradeTextarea.required = isTrade;
         }
     };
 

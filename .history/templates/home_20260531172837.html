@@ -468,7 +468,7 @@
                             <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details">Ver Detalhes</a>
                             {% if user.is_authenticated %}
                                 {% if anuncio.seller_id == user.id %}
-                                    <span class="btn-buy btn-disabled">Seu anúncio</span>
+                                    <span class="btn-disabled">Seu anúncio</span>
                                 {% elif anuncio.id in cart_listing_ids %}
                                     <span class="btn-buy btn-disabled">No carrinho</span>
                                 {% else %}

@@ -172,16 +172,6 @@ class ListingForm(forms.ModelForm):
             ]
 
     def clean_price(self):
-        # If the user selected 'trade', price should be ignored early
-        listing_type_raw = None
-        try:
-            listing_type_raw = self.data.get('listing_type')
-        except Exception:
-            listing_type_raw = None
-
-        if listing_type_raw == Listing.TRADE:
-            return None
-
         value = self.cleaned_data.get('price')
 
         if value in self.fields['price'].empty_values:

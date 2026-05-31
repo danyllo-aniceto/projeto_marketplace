@@ -1643,17 +1643,16 @@ input[type="number"].form-control[type=number] {
 .seller-link {
     color: var(--accent-cyan);
 .home-product-card {
-    min-width: 210px;
-    min-height: 320px;
+    min-width: 220px;
+    min-height: 360px;
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    overflow: visible !important;
 }
 
 .home-product-card .product-image {
-    min-height: 120px;
-    height: 150px;
+    min-height: 140px;
+    max-height: 220px;
     overflow: hidden;
 }
 
@@ -1661,8 +1660,7 @@ input[type="number"].form-control[type=number] {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
-    min-height: 150px;
-    padding-bottom: 1rem;
+    min-height: 160px;
 }
 
 .home-product-actions {
@@ -1670,7 +1668,6 @@ input[type="number"].form-control[type=number] {
     display: flex !important;
     gap: 0.6rem;
     align-items: center;
-    flex-wrap: wrap;
 }
 
 .home-product-actions a,
@@ -1681,7 +1678,6 @@ input[type="number"].form-control[type=number] {
     justify-content: center;
     min-height: 36px;
     padding: 0.45rem 0.6rem;
-    flex: 1 1 0;
 }
 
 .btn-details {
@@ -2427,54 +2423,4 @@ input[type="number"].form-control[type=number] {
     .auth-box {
         padding: 1.5rem;
     }
-}
-
-/* Final overrides for My Listings cards so the action buttons stay visible */
-.products-grid .home-product-card {
-    overflow: visible !important;
-    min-height: 390px !important;
-}
-
-.products-grid .home-product-card .product-info.home-product-info {
-    overflow: visible !important;
-    min-height: 210px !important;
-    padding-bottom: 1rem !important;
-}
-
-.products-grid .home-product-card .home-product-actions {
-    display: grid !important;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-    margin-top: 0.75rem !important;
-    position: relative;
-    z-index: 5;
-}
-
-.products-grid .home-product-card .home-product-actions .btn-details,
-.products-grid .home-product-card .home-product-actions .btn-buy,
-.products-grid .home-product-card .home-product-actions .inline-form button {
-    min-height: 40px;
-    width: 100% !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    color: #041123 !important;
-    text-shadow: none !important;
-}
-
-.products-grid .home-product-card .home-product-actions .btn-details {
-    background: rgba(10, 35, 66, 0.92) !important;
-    border: 1.5px solid var(--accent-cyan) !important;
-}
-
-.products-grid .home-product-card .home-product-actions .btn-buy {
-    background: linear-gradient(135deg, var(--accent-cyan), var(--primary-blue)) !important;
-}
-
-.products-grid .home-product-card .home-product-actions .inline-form {
-    display: block;
-    margin: 0;
-}
-
-.products-grid .home-product-card .home-product-actions .inline-form button {
-    display: inline-flex !important;
 }

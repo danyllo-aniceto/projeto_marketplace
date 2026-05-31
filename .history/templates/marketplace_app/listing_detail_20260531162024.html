@@ -43,9 +43,7 @@
 
             <div class="product-actions">
                 {% if user.is_authenticated %}
-                    {% if listing.seller_id == user.id %}
-                        <span class="btn-buy btn-disabled">Seu anúncio</span>
-                    {% elif in_cart %}
+                    {% if in_cart %}
                         <a href="{% url 'cart' %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Ver Carrinho</a>
                     {% else %}
                         {% if listing.listing_type == 'sale' %}

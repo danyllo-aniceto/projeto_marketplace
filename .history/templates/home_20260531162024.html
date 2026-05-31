@@ -467,9 +467,7 @@
                         <div class="product-actions home-product-actions">
                             <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details">Ver Detalhes</a>
                             {% if user.is_authenticated %}
-                                {% if anuncio.seller_id == user.id %}
-                                    <span class="btn-buy btn-disabled">Seu anúncio</span>
-                                {% elif anuncio.id in cart_listing_ids %}
+                                {% if anuncio.id in cart_listing_ids %}
                                     <span class="btn-buy btn-disabled">No carrinho</span>
                                 {% else %}
                                     <a href="{% url 'add_to_cart' anuncio.id %}?action={% if anuncio.listing_type == 'trade' %}trade{% else %}buy{% endif %}&next={{ request.get_full_path|urlencode }}" class="btn-buy add-to-cart-link" data-remember-scroll="true">{% if anuncio.listing_type == 'trade' %}Solicitar Troca{% elif anuncio.listing_type == 'sale' %}Adicionar ao Carrinho{% else %}Comprar{% endif %}</a>

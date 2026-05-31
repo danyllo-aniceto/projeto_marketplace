@@ -171,7 +171,7 @@ class AuthAndModelTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Você não pode adicionar ao carrinho um anúncio criado por você.')
-        self.assertEqual(CartItem.objects.filter(cart__user=self.user, listing=listing).count(), 0)
+        self.assertEqual(Cart.objects.filter(user=self.user).count(), 0)
 
     def test_detail_page_hides_cart_action_for_own_listing(self):
         listing = Listing.objects.create(

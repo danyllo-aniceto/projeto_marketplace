@@ -231,9 +231,6 @@ class CartItem(models.Model):
     def clean(self):
         super().clean()
 
-        if self.listing_id and self.cart_id and self.listing.seller_id == self.cart.user_id:
-            raise ValidationError({'listing': 'Você não pode adicionar ao carrinho um anúncio criado por você.'})
-
         if self.listing_id and self.desired_action == self.TRADE and self.listing.listing_type == Listing.SALE:
             raise ValidationError({'desired_action': 'Este anúncio não aceita troca.'})
 

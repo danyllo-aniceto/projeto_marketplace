@@ -5,25 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
 from marketplace_app.forms import CommentForm, ListingForm
-from marketplace_app.models import Cart, CartItem, Category, Listing, ListingImage, Order, OrderItem, TradeRequest
-
-
-PROCESSING_ORDER_STATUSES = [Order.PENDING_PAYMENT, Order.PAID]
-PROCESSING_TRADE_STATUSES = [TradeRequest.PENDING, TradeRequest.NEGOTIATING, TradeRequest.APPROVED]
-
-
-def _listing_is_locked(listing):
-    has_active_order = OrderItem.objects.filter(
-        listing=listing,
-        order__status__in=PROCESSING_ORDER_STATUSES,
-    ).exists()
-
-    has_active_trade = TradeRequest.objects.filter(
-        listing=listing,
-        status__in=PROCESSING_TRADE_STATUSES,
-    ).exists()
-
-    return has_active_order or has_active_trade
+from marketplace_app.models import Cart, CartItem, Category, Listing, ListingImage
 
 
 def home(request):
@@ -149,30 +131,14 @@ def home(request):
 @login_required
 def my_listings(request):
     listings = request.user.listings.order_by('-created_at')
-    locked_listing_ids = set(
-        OrderItem.objects.filter(
-            listing__seller=request.user,
-            order__status__in=PROCESSING_ORDER_STATUSES,
-        ).values_list('listing_id', flat=True)
-    ) | set(
-        TradeRequest.objects.filter(
-            listing__seller=request.user,
-            status__in=PROCESSING_TRADE_STATUSES,
-        ).values_list('listing_id', flat=True)
-    )
     return render(request, 'marketplace_app/my_listings.html', {
         'listings': listings,
-        'locked_listing_ids': locked_listing_ids,
     })
 
 
 @login_required
 def edit_listing(request, pk):
     listing = get_object_or_404(Listing, pk=pk, seller=request.user)
-
-    if _listing_is_locked(listing):
-        messages.error(request, 'Este anúncio já está vinculado a uma compra ou troca em andamento e não pode ser editado.')
-        return redirect('my_listings')
 
     if request.method == 'POST':
         form = ListingForm(request.POST, request.FILES, instance=listing, user=request.user)

@@ -51,19 +51,6 @@ def _format_phone(value):
     return f'({digits[:2]}) {digits[2:7]}-{digits[7:]}'
 
 
-def _format_currency(value):
-    if value in (None, ''):
-        return ''
-
-    try:
-        numeric_value = Decimal(value)
-    except (InvalidOperation, TypeError, ValueError):
-        return str(value)
-
-    formatted_value = f'{numeric_value:,.2f}'
-    return f'R$ {formatted_value}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-
-
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -144,14 +131,8 @@ class ListingForm(forms.ModelForm):
 
         is_create_mode = not getattr(self.instance, 'pk', None)
 
-        if not self.is_bound and not is_create_mode:
-            self.initial['price'] = _format_currency(self.instance.price)
-
         for field_name in ['title', 'description', 'trade_suggestions', 'price', 'category', 'listing_type', 'condition']:
             self.fields[field_name].required = True
-
-        self.fields['price'].required = False
-        self.fields['trade_suggestions'].required = False
 
         self.fields['images'].required = is_create_mode
         self.fields['trade_suggestions'].help_text = 'Informe o que você aceita na troca.'
@@ -172,20 +153,10 @@ class ListingForm(forms.ModelForm):
             ]
 
     def clean_price(self):
-        # If the user selected 'trade', price should be ignored early
-        listing_type_raw = None
-        try:
-            listing_type_raw = self.data.get('listing_type')
-        except Exception:
-            listing_type_raw = None
-
-        if listing_type_raw == Listing.TRADE:
-            return None
-
         value = self.cleaned_data.get('price')
 
         if value in self.fields['price'].empty_values:
-            return None
+            raise ValidationError('O preço é obrigatório.')
 
         if isinstance(value, Decimal):
             decimal_value = value
@@ -201,24 +172,6 @@ class ListingForm(forms.ModelForm):
             raise ValidationError('O preço deve ser maior que zero.')
 
         return decimal_value.quantize(Decimal('0.01'))
-
-    def clean(self):
-        cleaned_data = super().clean()
-        listing_type = cleaned_data.get('listing_type')
-        price = cleaned_data.get('price')
-        trade_suggestions = (cleaned_data.get('trade_suggestions') or '').strip()
-
-        if listing_type == Listing.TRADE:
-            if not trade_suggestions:
-                self.add_error('trade_suggestions', 'Informe as sugestões para troca.')
-            cleaned_data['price'] = None
-            cleaned_data['trade_suggestions'] = trade_suggestions
-        else:
-            if price is None:
-                self.add_error('price', 'O preço é obrigatório para anúncios de venda.')
-            cleaned_data['trade_suggestions'] = ''
-
-        return cleaned_data
 
 
 class UserProfileForm(forms.ModelForm):
