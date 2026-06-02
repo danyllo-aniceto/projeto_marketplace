@@ -157,7 +157,7 @@ class ListingForm(forms.ModelForm):
         self.fields['trade_suggestions'].help_text = 'Informe o que você aceita na troca.'
         self.fields['listing_type'].help_text = 'Escolha entre venda ou troca.'
 
-        # Se for loja, mantém apenas venda.
+        # Se for loja, mantém apenas venda de produto novo.
         if self.user and self.user.is_store:
             self.fields['listing_type'].choices = [
                 ('sale', 'Venda')
@@ -169,6 +169,7 @@ class ListingForm(forms.ModelForm):
             self.fields['listing_type'].choices = [
                 ('sale', 'Venda'),
                 ('trade', 'Troca'),
+                ('both', 'Venda e Troca'),
             ]
 
     def clean_price(self):
@@ -209,11 +210,22 @@ class ListingForm(forms.ModelForm):
         trade_suggestions = (cleaned_data.get('trade_suggestions') or '').strip()
 
         if listing_type == Listing.TRADE:
+            # Troca pura: sem preço, sugestões obrigatórias
             if not trade_suggestions:
-                self.add_error('trade_suggestions', 'Informe as sugestões para troca.')
+                self.add_error('trade_suggestions', 'Informe o que você aceita em troca.')
             cleaned_data['price'] = None
             cleaned_data['trade_suggestions'] = trade_suggestions
+
+        elif listing_type == Listing.BOTH:
+            # Venda e Troca: preço obrigatório E sugestões obrigatórias
+            if price is None:
+                self.add_error('price', 'O preço é obrigatório para anúncios de venda.')
+            if not trade_suggestions:
+                self.add_error('trade_suggestions', 'Informe o que você aceita em troca.')
+            cleaned_data['trade_suggestions'] = trade_suggestions
+
         else:
+            # Venda pura: preço obrigatório, sem sugestões
             if price is None:
                 self.add_error('price', 'O preço é obrigatório para anúncios de venda.')
             cleaned_data['trade_suggestions'] = ''

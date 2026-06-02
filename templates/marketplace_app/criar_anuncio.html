@@ -1,342 +1,373 @@
 {% extends 'base.html' %}
 
-{% block title %}Criar Anúncio - Tech Hub{% endblock %}
+{% block title %}Criar Anúncio — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
+    <nav class="breadcrumb">
+        <a href="{% url 'home' %}">Início</a>
+        <span class="material-icons">chevron_right</span>
+        <a href="{% url 'my_listings' %}">Meus anúncios</a>
+        <span class="material-icons">chevron_right</span>
+        <span class="breadcrumb-current">Criar anúncio</span>
+    </nav>
+
     <div class="listing-page-header">
-        <a href="{% url 'my_listings' %}" class="listing-back-link" aria-label="Voltar para meus anúncios">
+        <a href="{% url 'my_listings' %}" class="listing-back-link" aria-label="Voltar">
             <span class="material-icons">arrow_back</span>
         </a>
-        <h2 class="section-title listing-page-title"><span class="material-icons">add_circle</span> Criar Novo Anúncio</h2>
+        <h2 class="section-title listing-page-title">
+            <span class="material-icons">add_circle</span> Criar Novo Anúncio
+        </h2>
     </div>
 
     <div class="listing-form-container">
+
+        <!-- FORMULÁRIO PRINCIPAL -->
         <div class="listing-form-card">
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-message">
-                        {{ message }}
-                    </div>
-                {% endfor %}
+
+            {% if form.non_field_errors %}
+            <div class="form-error-summary">
+                <p><strong>Corrija os erros abaixo para continuar:</strong></p>
+                <ul>
+                    {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
             {% endif %}
 
-            <form method="post" enctype="multipart/form-data" novalidate>
+            <form method="post" enctype="multipart/form-data" novalidate id="listing-form">
                 {% csrf_token %}
 
-                <div class="form-row">
-                    <div class="form-group">
-                        {{ form.title.label_tag }}
-                        {{ form.title }}
-                        {% if form.title.errors %}
-                            <div class="error-message">{{ form.title.errors }}</div>
-                        {% endif %}
+                <!-- ① TIPO DE ANÚNCIO (primeiro — controla tudo) -->
+                <div class="form-group">
+                    <label style="margin-bottom: 0.75rem; display: block;">
+                        Tipo de Anúncio <span style="color: var(--danger-color);">*</span>
+                    </label>
+
+                    {% if not user.is_store %}
+                    <div class="listing-type-cards">
+                        <div class="listing-type-card" data-type="sale" role="button" tabindex="0">
+                            <span class="material-icons">sell</span>
+                            <strong>Venda</strong>
+                            <p>Defina um preço e venda direto.</p>
+                        </div>
+                        <div class="listing-type-card" data-type="trade" role="button" tabindex="0">
+                            <span class="material-icons">compare_arrows</span>
+                            <strong>Troca</strong>
+                            <p>Negocie uma troca com outro usuário.</p>
+                        </div>
+                        <div class="listing-type-card" data-type="both" role="button" tabindex="0">
+                            <span class="material-icons">sync_alt</span>
+                            <strong>Venda e Troca</strong>
+                            <p>Aceita compra direta ou proposta de troca.</p>
+                        </div>
                     </div>
+                    {% endif %}
+
+                    <!-- Select real (sincronizado pelo JS; oculto visualmente) -->
+                    <div style="display:none;">{{ form.listing_type }}</div>
+                    {% if form.listing_type.errors %}
+                        <div class="field-error">{{ form.listing_type.errors }}</div>
+                    {% endif %}
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        {{ form.description.label_tag }}
-                        {{ form.description }}
-                        {% if form.description.errors %}
-                            <div class="error-message">{{ form.description.errors }}</div>
-                        {% endif %}
+                <!-- ② TÍTULO -->
+                <div class="form-group">
+                    {{ form.title.label_tag }}
+                    {{ form.title }}
+                    <div class="field-char-counter">
+                        <span id="title-count">0</span>/255
                     </div>
+                    {% if form.title.errors %}
+                        <div class="field-error">{{ form.title.errors }}</div>
+                    {% endif %}
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        {{ form.trade_suggestions.label_tag }}
-                        {{ form.trade_suggestions }}
-                        {% if form.trade_suggestions.errors %}
-                            <div class="error-message">{{ form.trade_suggestions.errors }}</div>
-                        {% endif %}
+                <!-- ③ DESCRIÇÃO -->
+                <div class="form-group">
+                    {{ form.description.label_tag }}
+                    {{ form.description }}
+                    <div class="field-char-counter">
+                        <span id="desc-count">0</span> caracteres
                     </div>
+                    {% if form.description.errors %}
+                        <div class="field-error">{{ form.description.errors }}</div>
+                    {% endif %}
                 </div>
 
-                <div class="form-row" id="listing-price-row">
+                <!-- ④ CATEGORIA + CONDIÇÃO (2 colunas) -->
+                <div class="form-row">
                     <div class="form-group">
-                        {{ form.price.label_tag }}
-                        {{ form.price }}
-                        {% if form.price.errors %}
-                            <div class="error-message">{{ form.price.errors }}</div>
+                        {{ form.category.label_tag }}
+                        {{ form.category }}
+                        {% if form.category.errors %}
+                            <div class="field-error">{{ form.category.errors }}</div>
                         {% endif %}
                     </div>
                     <div class="form-group">
                         {{ form.condition.label_tag }}
                         {{ form.condition }}
                         {% if form.condition.errors %}
-                            <div class="error-message">{{ form.condition.errors }}</div>
+                            <div class="field-error">{{ form.condition.errors }}</div>
                         {% endif %}
                     </div>
                 </div>
 
-                <div class="form-row" id="listing-trade-row">
-                    <div class="form-group">
-                        {{ form.category.label_tag }}
-                        {{ form.category }}
-                        {% if form.category.errors %}
-                            <div class="error-message">{{ form.category.errors }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="form-group">
-                        {{ form.listing_type.label_tag }}
-                        {{ form.listing_type }}
-                        {% if form.listing_type.errors %}
-                            <div class="error-message">{{ form.listing_type.errors }}</div>
-                        {% endif %}
-                    </div>
+                <!-- ⑤ PREÇO (visível para venda e venda+troca) -->
+                <div class="form-group" id="price-group">
+                    {{ form.price.label_tag }}
+                    {{ form.price }}
+                    {% if form.price.errors %}
+                        <div class="field-error">{{ form.price.errors }}</div>
+                    {% endif %}
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <div class="file-input-wrapper">
-                            {{ form.images }}
-                            <label for="id_images" class="file-input-label">
-                                <span class="material-icons">image</span>
-                                Selecionar Imagens
-                            </label>
-                        </div>
-                        <p class="form-help-text">{{ form.images.help_text }}</p>
-                        <p class="form-help-text selected-images-count" id="selected-images-count">Nenhuma imagem selecionada.</p>
-                        {% if form.images.errors %}
-                            <div class="error-message">{{ form.images.errors }}</div>
-                        {% endif %}
-                    </div>
+                <!-- ⑥ SUGESTÕES DE TROCA (visível para troca e venda+troca) -->
+                <div class="form-group listing-field-hidden" id="trade-suggestions-group">
+                    {{ form.trade_suggestions.label_tag }}
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.5rem;">
+                        Informe o que você aceita na troca: marca, modelo, valor estimado, condição.
+                    </p>
+                    {{ form.trade_suggestions }}
+                    {% if form.trade_suggestions.errors %}
+                        <div class="field-error">{{ form.trade_suggestions.errors }}</div>
+                    {% endif %}
                 </div>
 
-                {% if form.non_field_errors %}
-                    <div class="error-message">
-                        {{ form.non_field_errors }}
-                    </div>
-                {% endif %}
+                <!-- ⑦ IMAGENS -->
+                <div class="form-group">
+                    <label style="margin-bottom: 0.6rem; display: block; color: var(--accent-cyan); font-weight: 600;">
+                        Fotos do Produto <span style="color: var(--danger-color);">*</span>
+                    </label>
 
-                <div class="form-actions">
-                    <button type="submit" class="btn-secondary">
-                        <span class="material-icons">publish</span> Publicar Anúncio
+                    <div class="image-upload-zone" id="upload-zone" role="button" tabindex="0"
+                         onclick="document.getElementById('id_images').click()"
+                         onkeydown="if(event.key==='Enter'||event.key===' '){document.getElementById('id_images').click()}">
+                        <span class="material-icons">cloud_upload</span>
+                        <p class="upload-title">Clique para selecionar ou arraste aqui</p>
+                        <p class="upload-subtitle">JPG, PNG, WebP · Máx. 5MB por imagem</p>
+                        <p class="upload-count" id="upload-count"></p>
+                    </div>
+
+                    <div style="display:none;">{{ form.images }}</div>
+                    <div class="image-preview-grid" id="image-preview-grid"></div>
+
+                    {% if form.images.errors %}
+                        <div class="field-error">{{ form.images.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-actions" style="margin-top: 1.5rem;">
+                    <button type="submit" class="btn-secondary" style="min-width: 180px;">
+                        Publicar Anúncio
                     </button>
+                    <a href="{% url 'my_listings' %}" class="btn-details" style="min-width: 120px; justify-content: center;">
+                        Cancelar
+                    </a>
                 </div>
             </form>
         </div>
 
+        <!-- SIDEBAR DE DICAS -->
         <div class="listing-info-card">
-            <h3><span class="material-icons">info</span> Dicas para um Bom Anúncio</h3>
-            <ul>
-                <li><strong>Título descritivo:</strong> Use termos específicos para melhor busca</li>
-                <li><strong>Preço justo:</strong> Pesquise produtos similares no mercado</li>
-                <li><strong>Descrição detalhada:</strong> Mencione marca, modelo, ano e condição</li>
-                <li><strong>Fotos claras:</strong> Use boa iluminação e envie mais de uma imagem se possível</li>
-                <li><strong>Categoria correta:</strong> Ajuda vendedores a encontrar seu produto</li>
-                <li><strong>Tipo de anúncio:</strong> Escolha entre Venda ou Troca</li>
+            <h3><span class="material-icons">tips_and_updates</span> Dicas</h3>
+            <ul id="tips-list">
+                <li><strong>Tipo:</strong> Escolha o tipo antes de preencher os outros campos.</li>
+                <li><strong>Título:</strong> Seja específico — inclua marca e modelo.</li>
+                <li><strong>Descrição:</strong> Mencione defeitos, acessórios inclusos e histórico de uso.</li>
+                <li><strong>Preço:</strong> Pesquise valores similares para ser competitivo.</li>
+                <li><strong>Fotos:</strong> Boa iluminação e múltiplos ângulos aumentam as chances de venda.</li>
+                <li><strong>Troca:</strong> Quanto mais detalhado o que você aceita, mais propostas recebe.</li>
             </ul>
+
+            {% if user.is_store %}
+            <div style="margin-top: 1rem; padding: 0.75rem; border: 1px solid rgba(58,246,255,0.2); border-radius: 8px; background: rgba(58,246,255,0.04);">
+                <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0; line-height: 1.5;">
+                    <span class="material-icons" style="font-size: 14px; vertical-align: middle; color: var(--accent-cyan);">store</span>
+                    Você está publicando como <strong style="color: var(--text-white);">loja</strong>. Somente anúncios de venda de produtos <strong style="color: var(--text-white);">novos</strong> são permitidos.
+                </p>
+            </div>
+            {% endif %}
         </div>
+
     </div>
 </div>
+{% endblock %}
 
-<style>
-.listing-page-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin: 3rem 0 2rem;
-}
-
-.listing-page-header .section-title {
-    margin: 0;
-}
-
-.listing-page-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.listing-back-link {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--border-color);
-    color: var(--accent-cyan);
-    background: rgba(10, 35, 66, 0.8);
-    transition: all 0.3s;
-    flex-shrink: 0;
-}
-
-.listing-back-link:hover {
-    border-color: var(--accent-cyan);
-    box-shadow: 0 0 15px rgba(0, 212, 255, 0.25);
-    transform: translateX(-2px);
-}
-
-.listing-back-link .material-icons {
-    font-size: 22px;
-}
-
-.listing-form-container {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 2rem;
-    margin: 2rem 0 4rem;
-}
-
-.listing-field-hidden {
-    display: none !important;
-}
-
-.listing-form-card {
-    background: linear-gradient(135deg, var(--secondary-dark), rgba(10, 35, 66, 0.8));
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 2rem;
-}
-
-.listing-info-card {
-    background: linear-gradient(135deg, var(--secondary-dark), rgba(10, 35, 66, 0.8));
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.5rem;
-    height: fit-content;
-}
-
-.listing-info-card h3 {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--accent-cyan);
-    margin-bottom: 1rem;
-    font-size: 1.1rem;
-}
-
-.listing-info-card ul {
-    list-style: none;
-    padding: 0;
-}
-
-.listing-info-card li {
-    margin-bottom: 0.75rem;
-    color: var(--text-gray);
-    line-height: 1.5;
-    font-size: 0.9rem;
-}
-
-.listing-info-card li strong {
-    color: var(--accent-cyan);
-}
-
-.form-help-text {
-    font-size: 0.8rem;
-    color: var(--text-gray);
-    margin-top: 0.3rem;
-}
-
-.selected-images-count {
-    margin-top: 0.35rem;
-}
-
-.listing-form-card .file-input-input {
-    display: none;
-}
-
-.form-control {
-    width: 100%;
-}
-
-@media (max-width: 900px) {
-    .listing-form-container {
-        grid-template-columns: 1fr;
-    }
-
-    .listing-page-header {
-        gap: 0.5rem;
-        margin: 2.2rem 0 1.5rem;
-    }
-}
-
-</style>
-
+{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+
+    // ---- Tipo de anúncio: cards visuais ----
+    const listingTypeSelect = document.getElementById('id_listing_type');
+    const typeCards = document.querySelectorAll('.listing-type-card');
+    const priceGroup = document.getElementById('price-group');
+    const tradeSuggestionsGroup = document.getElementById('trade-suggestions-group');
     const priceInput = document.querySelector('.currency-mask');
-    const imagesInput = document.getElementById('id_images');
-    const imagesCount = document.getElementById('selected-images-count');
+    const tradeSuggestionsTextarea = document.getElementById('id_trade_suggestions');
 
-    const formatCurrency = (value) => {
-        const digits = value.replace(/\D/g, '');
-        if (!digits) {
-            return '';
-        }
-
-        const numericValue = (Number(digits) / 100).toLocaleString('pt-BR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        });
-
-        return `R$ ${numericValue}`;
-    };
-
-    if (priceInput) {
-        priceInput.addEventListener('input', () => {
-            priceInput.value = formatCurrency(priceInput.value);
-        });
-
-        priceInput.addEventListener('blur', () => {
-            if (priceInput.value.trim()) {
-                priceInput.value = formatCurrency(priceInput.value);
-            }
+    function syncCards() {
+        const currentValue = listingTypeSelect ? listingTypeSelect.value : 'sale';
+        typeCards.forEach(card => {
+            card.classList.toggle('selected', card.dataset.type === currentValue);
         });
     }
 
-    if (imagesInput && imagesCount) {
-        const updateImagesCount = () => {
-            const total = imagesInput.files ? imagesInput.files.length : 0;
-            imagesCount.textContent = total === 0
-                ? 'Nenhuma imagem selecionada.'
-                : total === 1
-                    ? '1 imagem selecionada.'
-                    : `${total} imagens selecionadas.`;
-        };
+    function toggleFields() {
+        const type = listingTypeSelect ? listingTypeSelect.value : 'sale';
+        const showPrice = type === 'sale' || type === 'both';
+        const showTrade = type === 'trade' || type === 'both';
 
-        imagesInput.addEventListener('change', updateImagesCount);
-        updateImagesCount();
-    }
-
-    const listingTypeInput = document.getElementById('id_listing_type');
-    const priceRow = document.getElementById('listing-price-row');
-    const tradeRow = document.getElementById('listing-trade-row');
-    const tradeSuggestionsGroup = document.querySelector('#id_trade_suggestions')?.closest('.form-row');
-    const priceInputGroup = document.getElementById('id_price') ? document.getElementById('id_price').closest('.form-group') : null;
-
-    const toggleFields = () => {
-        const listingType = listingTypeInput ? listingTypeInput.value : 'sale';
-        const isTrade = listingType === 'trade';
-
-        // Hide only the price input group, keep `condition` visible
-        if (priceInputGroup) {
-            priceInputGroup.classList.toggle('listing-field-hidden', isTrade);
-            if (isTrade && priceInput) {
+        if (priceGroup) {
+            priceGroup.classList.toggle('listing-field-hidden', !showPrice);
+            if (!showPrice && priceInput) {
                 priceInput.value = '';
                 priceInput.removeAttribute('required');
             } else if (priceInput) {
-                priceInput.required = true;
+                priceInput.setAttribute('required', 'required');
             }
         }
 
         if (tradeSuggestionsGroup) {
-            tradeSuggestionsGroup.classList.toggle('listing-field-hidden', !isTrade);
+            tradeSuggestionsGroup.classList.toggle('listing-field-hidden', !showTrade);
+            if (tradeSuggestionsTextarea) {
+                tradeSuggestionsTextarea.required = showTrade;
+            }
         }
+    }
 
-        const tradeTextarea = document.getElementById('id_trade_suggestions');
-        if (tradeTextarea) {
-            tradeTextarea.required = isTrade;
-        }
+    typeCards.forEach(card => {
+        const activate = () => {
+            if (listingTypeSelect) {
+                listingTypeSelect.value = card.dataset.type;
+                listingTypeSelect.dispatchEvent(new Event('change'));
+            }
+        };
+        card.addEventListener('click', activate);
+        card.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
+        });
+    });
+
+    if (listingTypeSelect) {
+        listingTypeSelect.addEventListener('change', () => {
+            syncCards();
+            toggleFields();
+        });
+    }
+
+    // Inicializa com o valor atual (importante em caso de erro de validação)
+    syncCards();
+    toggleFields();
+
+    // ---- Máscara de moeda ----
+    const formatCurrency = (value) => {
+        const digits = value.replace(/\D/g, '');
+        if (!digits) return '';
+        return 'R$ ' + (Number(digits) / 100).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2, maximumFractionDigits: 2
+        });
     };
 
-    if (listingTypeInput) {
-        listingTypeInput.addEventListener('change', toggleFields);
-        toggleFields();
+    if (priceInput) {
+        priceInput.addEventListener('input', () => { priceInput.value = formatCurrency(priceInput.value); });
+        priceInput.addEventListener('blur', () => {
+            if (priceInput.value.trim()) priceInput.value = formatCurrency(priceInput.value);
+        });
+    }
+
+    // ---- Contadores de caracteres ----
+    const titleInput = document.getElementById('id_title');
+    const titleCount = document.getElementById('title-count');
+    if (titleInput && titleCount) {
+        const update = () => {
+            const len = titleInput.value.length;
+            titleCount.textContent = len;
+            titleCount.closest('.field-char-counter').classList.toggle('near-limit', len > 230);
+            titleCount.closest('.field-char-counter').classList.toggle('at-limit', len >= 255);
+        };
+        titleInput.addEventListener('input', update);
+        update();
+    }
+
+    const descInput = document.getElementById('id_description');
+    const descCount = document.getElementById('desc-count');
+    if (descInput && descCount) {
+        const update = () => { descCount.textContent = descInput.value.length; };
+        descInput.addEventListener('input', update);
+        update();
+    }
+
+    // ---- Upload de imagens com preview ----
+    const imagesInput = document.getElementById('id_images');
+    const previewGrid = document.getElementById('image-preview-grid');
+    const uploadZone = document.getElementById('upload-zone');
+    const uploadCount = document.getElementById('upload-count');
+
+    function renderPreviews() {
+        if (!previewGrid || !imagesInput) return;
+        previewGrid.innerHTML = '';
+        const files = Array.from(imagesInput.files || []);
+
+        if (uploadCount) {
+            uploadCount.textContent = files.length === 0
+                ? ''
+                : files.length === 1 ? '1 imagem selecionada'
+                : `${files.length} imagens selecionadas`;
+        }
+
+        files.forEach((file, i) => {
+            if (!file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const thumb = document.createElement('div');
+                thumb.className = 'image-preview-thumb';
+                thumb.title = file.name;
+                thumb.innerHTML = `
+                    <img src="${e.target.result}" alt="Preview ${i + 1}">
+                    <span class="image-preview-num">${i + 1}</span>
+                `;
+                previewGrid.appendChild(thumb);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    if (imagesInput) {
+        imagesInput.addEventListener('change', renderPreviews);
+    }
+
+    if (uploadZone && imagesInput) {
+        uploadZone.addEventListener('dragover', e => {
+            e.preventDefault();
+            uploadZone.classList.add('drag-over');
+        });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+        uploadZone.addEventListener('drop', e => {
+            e.preventDefault();
+            uploadZone.classList.remove('drag-over');
+            const dt = new DataTransfer();
+            Array.from(e.dataTransfer.files)
+                .filter(f => f.type.startsWith('image/'))
+                .forEach(f => dt.items.add(f));
+            if (dt.files.length) {
+                imagesInput.files = dt.files;
+                renderPreviews();
+            }
+        });
+    }
+
+    // ---- Seleção inicial correta ao voltar com erros ----
+    // Se o card "Venda" estiver selecionado por padrão mas o select tem outro valor,
+    // o syncCards() já cuida disso acima
+    if (typeCards.length > 0 && !document.querySelector('.listing-type-card.selected')) {
+        const defaultCard = document.querySelector('.listing-type-card[data-type="sale"]');
+        if (defaultCard) {
+            defaultCard.classList.add('selected');
+            if (listingTypeSelect && !listingTypeSelect.value) listingTypeSelect.value = 'sale';
+        }
     }
 });
 </script>

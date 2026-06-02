@@ -132,10 +132,13 @@ def home(request):
     featured_count = featured_products.count()
     categories_count = categories.count()
 
+    products_paginator = Paginator(all_products, 12)
+    products_page_obj = products_paginator.get_page(request.GET.get('page', 1))
+
     return render(request, 'home.html', {
         'carousel_sections': carousel_sections,
         'featured_products': featured_products,
-        'anuncios': all_products,
+        'anuncios': products_page_obj,
         'categories': categories,
         'selected_category': selected_category,
         'search_query': search_query,
@@ -148,7 +151,7 @@ def home(request):
 
 @login_required
 def my_listings(request):
-    listings = request.user.listings.order_by('-created_at')
+    listings_qs = request.user.listings.prefetch_related('images').order_by('-created_at')
     locked_listing_ids = set(
         OrderItem.objects.filter(
             listing__seller=request.user,
@@ -160,19 +163,22 @@ def my_listings(request):
             status__in=PROCESSING_TRADE_STATUSES,
         ).values_list('listing_id', flat=True)
     )
+    page_obj = Paginator(listings_qs, 12).get_page(request.GET.get('page', 1))
     return render(request, 'marketplace_app/my_listings.html', {
-        'listings': listings,
+        'listings': page_obj,
         'locked_listing_ids': locked_listing_ids,
     })
 
 
 @login_required
 def edit_listing(request, pk):
+    from marketplace_app.models import TradeRequest as TR
     listing = get_object_or_404(Listing, pk=pk, seller=request.user)
+    is_locked = _listing_is_locked(listing)
 
-    if _listing_is_locked(listing):
-        messages.error(request, 'Este anúncio já está vinculado a uma compra ou troca em andamento e não pode ser editado.')
-        return redirect('my_listings')
+    if is_locked and request.method == 'POST':
+        messages.error(request, 'Edição bloqueada — anúncio em negociação.')
+        return redirect('edit_listing', pk=pk)
 
     if request.method == 'POST':
         form = ListingForm(request.POST, request.FILES, instance=listing, user=request.user)
@@ -184,17 +190,28 @@ def edit_listing(request, pk):
             for image in form.cleaned_data.get('images', []):
                 ListingImage.objects.create(listing=anuncio, image=image)
 
+            messages.success(request, f'Anúncio "{listing.title}" atualizado com sucesso!')
             return redirect('my_listings')
     else:
         form = ListingForm(instance=listing, user=request.user)
 
+    active_trade = None
+    if is_locked:
+        active_trade = TR.objects.filter(
+            listing=listing,
+            status__in=PROCESSING_TRADE_STATUSES,
+        ).first()
+
     return render(request, 'marketplace_app/edit_listing.html', {
         'form': form,
         'listing': listing,
+        'is_locked': is_locked,
+        'active_trade': active_trade,
     })
 
 
 def listing_detail(request, pk):
+    from marketplace_app.models import Comment
     listing = get_object_or_404(Listing, pk=pk)
     comment_form = CommentForm()
 
@@ -207,10 +224,23 @@ def listing_detail(request, pk):
             comment = comment_form.save(commit=False)
             comment.listing = listing
             comment.user = request.user
+            parent_id = request.POST.get('parent_id')
+            if parent_id:
+                try:
+                    comment.parent = Comment.objects.get(pk=parent_id, listing=listing, parent__isnull=True)
+                except Comment.DoesNotExist:
+                    pass
             comment.save()
             return redirect('listing_detail', pk=pk)
 
-    comments = listing.comments.select_related('user').order_by('-created_at')
+    comments = (
+        listing.comments
+        .filter(parent__isnull=True)
+        .select_related('user')
+        .prefetch_related('replies__user')
+        .order_by('-created_at')
+    )
+    total_comments = listing.comments.count()
     in_cart = False
 
     if request.user.is_authenticated:
@@ -220,6 +250,7 @@ def listing_detail(request, pk):
     return render(request, 'marketplace_app/listing_detail.html', {
         'listing': listing,
         'comments': comments,
+        'total_comments': total_comments,
         'comment_form': comment_form,
         'in_cart': in_cart,
     })
@@ -246,7 +277,9 @@ def criar_anuncio(request):
             for image in form.cleaned_data.get('images', []):
                 ListingImage.objects.create(listing=anuncio, image=image)
 
-            return redirect('home')
+            from django.contrib import messages as django_messages
+            django_messages.success(request, f'Anúncio "{anuncio.title}" publicado com sucesso!')
+            return redirect('my_listings')
     else:
         form = ListingForm(user=request.user)
 

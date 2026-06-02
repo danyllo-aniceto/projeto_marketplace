@@ -4,6 +4,12 @@
 
 {% block content %}
 <div class="container">
+    <nav class="breadcrumb">
+        <a href="{% url 'home' %}">Início</a>
+        <span class="material-icons">chevron_right</span>
+        <span class="breadcrumb-current">{{ profile_user.username }}</span>
+    </nav>
+
     <h2 class="section-title"><span class="material-icons">person</span> Perfil de {{ profile_user.username }}</h2>
 
     <div class="profile-public-grid">
@@ -57,7 +63,7 @@
                                 {% if anuncio.images.all %}
                                     <img src="{{ anuncio.images.first.image.url }}" alt="{{ anuncio.title }}">
                                 {% else %}
-                                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #00d4ff, #0066ff); font-size: 3rem;"><span class="material-icons">devices</span></div>
+                                    <div class="product-image-placeholder"><span class="material-icons">devices</span></div>
                                 {% endif %}
                             </div>
                             <div class="product-info">
@@ -73,8 +79,9 @@
                 </div>
             {% else %}
                 <div class="empty-state">
-                    <p><span class="material-icons" style="font-size: 3rem; color: #999;">inventory_2</span></p>
-                    <p>Este usuário ainda não possui anúncios ativos.</p>
+                    <span class="material-icons empty-icon">inventory_2</span>
+                    <h3>Nenhum anúncio ativo</h3>
+                    <p>Este usuário ainda não publicou anúncios.</p>
                 </div>
             {% endif %}
 

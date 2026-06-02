@@ -1,102 +1,356 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ listing.title }} - Detalhes{% endblock %}
+{% block title %}{{ listing.title }} — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
-    <div class="section-title">
-        <h2><span class="material-icons">visibility</span> {{ listing.title }}</h2>
-    </div>
+
+    <nav class="breadcrumb">
+        <a href="{% url 'home' %}">Início</a>
+        <span class="material-icons">chevron_right</span>
+        {% if listing.category %}
+            <a href="{% url 'home' %}?categoria={{ listing.category.slug }}">{{ listing.category.name }}</a>
+            <span class="material-icons">chevron_right</span>
+        {% endif %}
+        <span class="breadcrumb-current">{{ listing.title|truncatechars:40 }}</span>
+    </nav>
 
     <div class="product-detail-grid">
+
+        <!-- GALERIA -->
         <div class="product-detail-image">
             {% if listing.images.all %}
-                <img src="{{ listing.images.first.image.url }}" alt="{{ listing.title }}">
+            <div class="gallery-wrapper">
+                <div class="gallery-main">
+                    <img id="gallery-main-img"
+                         src="{{ listing.images.first.image.url }}"
+                         alt="{{ listing.title }}">
+                </div>
+                {% if listing.images.count > 1 %}
+                <div class="gallery-thumbs">
+                    {% for img in listing.images.all %}
+                    <div class="gallery-thumb {% if forloop.first %}active{% endif %}"
+                         data-src="{{ img.image.url }}"
+                         data-index="{{ forloop.counter0 }}"
+                         role="button"
+                         tabindex="0"
+                         aria-label="Imagem {{ forloop.counter }}">
+                        <img src="{{ img.image.url }}" alt="Imagem {{ forloop.counter }}">
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
             {% else %}
-                <div class="product-detail-placeholder">
-                    <span class="material-icons">devices</span>
+                <div class="gallery-wrapper">
+                    <div class="gallery-main">
+                        <div class="gallery-main-placeholder">
+                            <span class="material-icons">devices</span>
+                        </div>
+                    </div>
                 </div>
             {% endif %}
         </div>
 
+        <!-- INFORMAÇÕES -->
         <div class="product-detail-info">
-            <p class="product-detail-category">Categoria: <strong>{{ listing.category.name }}</strong></p>
+            <h1 style="font-size: 1.5rem; margin: 0 0 0.4rem; color: var(--text-white); line-height: 1.3;">{{ listing.title }}</h1>
+
             <p class="product-detail-price">
                 {% if listing.listing_type == 'trade' or listing.price is None %}
-                    Troca
+                    <span class="badge badge-negotiating" style="font-size: 1rem; padding: 0.4rem 0.9rem;">Negociável</span>
                 {% else %}
                     R$ {{ listing.price|floatformat:2 }}
+                    {% if listing.listing_type == 'both' %}
+                        <span class="listing-type-badge type-trade" style="margin-left: 0.5rem; vertical-align: middle; font-size: 0.75rem;">aceita troca</span>
+                    {% endif %}
                 {% endif %}
             </p>
-            <p>{{ listing.description }}</p>
 
-            <div class="product-detail-meta">
-                <span><span class="material-icons">inventory_2</span> {{ listing.get_condition_display }}</span>
-                <span><span class="material-icons">sell</span> {{ listing.get_listing_type_display }}</span>
-                <span><span class="material-icons">verified_user</span> {{ listing.get_status_display }}</span>
+            <p style="color: var(--text-gray); font-size: 0.93rem; line-height: 1.65; margin: 0.5rem 0 1.25rem; white-space: pre-line;">{{ listing.description }}</p>
+
+            <div style="display: flex; flex-direction: column; gap: 0; margin-bottom: 1.5rem;">
+                <div class="info-row">
+                    <span class="material-icons">category</span>
+                    <strong>Categoria</strong>
+                    <span>{{ listing.category.name }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="material-icons">inventory_2</span>
+                    <strong>Condição</strong>
+                    <span>{{ listing.get_condition_display }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="material-icons">sell</span>
+                    <strong>Tipo</strong>
+                    <span>{{ listing.get_listing_type_display }}</span>
+                </div>
+                {% if listing.listing_type == 'trade' or listing.listing_type == 'both' %}
+                {% if listing.trade_suggestions %}
+                <div class="info-row">
+                    <span class="material-icons">tips_and_updates</span>
+                    <strong>Aceita em troca</strong>
+                    <span style="color: var(--text-muted);">{{ listing.trade_suggestions }}</span>
+                </div>
+                {% endif %}
+                {% endif %}
+                <div class="info-row">
+                    <span class="material-icons">verified_user</span>
+                    <strong>Status</strong>
+                    <span>
+                        {% if listing.status == 'active' %}
+                            <span class="badge badge-active">{{ listing.get_status_display }}</span>
+                        {% else %}
+                            <span class="badge badge-info">{{ listing.get_status_display }}</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="material-icons">person</span>
+                    <strong>Vendedor</strong>
+                    <span>
+                        <a href="{% url 'user_profile' listing.seller.username %}" class="seller-link">{{ listing.seller.username }}</a>
+                        {% if listing.seller.is_store %}
+                            {% if listing.seller.storeprofile.verified %}
+                                <span class="verified-badge" style="margin-left: 0.5rem;">
+                                    <span class="material-icons">verified</span> Loja verificada
+                                </span>
+                            {% else %}
+                                <span class="badge badge-info" style="margin-left: 0.5rem; font-size: 0.72rem;">Loja</span>
+                            {% endif %}
+                        {% endif %}
+                    </span>
+                </div>
+                {% if listing.images.count > 0 %}
+                <div class="info-row">
+                    <span class="material-icons">photo_library</span>
+                    <strong>Fotos</strong>
+                    <span>{{ listing.images.count }} imagem{{ listing.images.count|pluralize:"s" }}</span>
+                </div>
+                {% endif %}
             </div>
-
-            <p class="product-detail-seller">
-                <span class="material-icons">person</span>
-                Vendedor: <strong><a href="{% url 'user_profile' listing.seller.username %}" class="seller-link">{{ listing.seller.username }}</a></strong>
-            </p>
 
             <div class="product-actions">
                 {% if user.is_authenticated %}
                     {% if listing.seller_id == user.id %}
                         <span class="btn-buy btn-disabled">Seu anúncio</span>
+                        <a href="{% url 'edit_listing' listing.id %}" class="btn-details">Editar anúncio</a>
                     {% elif in_cart %}
-                        <a href="{% url 'cart' %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Ver Carrinho</a>
+                        <a href="{% url 'cart' %}" class="btn-buy">Ver carrinho</a>
                     {% else %}
                         {% if listing.listing_type == 'sale' %}
-                            <a href="{% url 'add_to_cart' listing.id %}?action=buy&next={% url 'listing_detail' listing.id %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Adicionar ao Carrinho</a>
+                            <a href="{% url 'add_to_cart' listing.id %}?action=buy&next={% url 'listing_detail' listing.id %}" class="btn-buy">Adicionar ao carrinho</a>
                         {% elif listing.listing_type == 'trade' %}
-                            <a href="{% url 'add_to_cart' listing.id %}?action=trade&next={% url 'listing_detail' listing.id %}" class="btn-buy"><span class="material-icons">handshake</span> Solicitar Troca</a>
+                            <a href="{% url 'add_to_cart' listing.id %}?action=trade&next={% url 'listing_detail' listing.id %}" class="btn-buy">Solicitar troca</a>
                         {% else %}
-                            <a href="{% url 'add_to_cart' listing.id %}?action=buy&next={% url 'listing_detail' listing.id %}" class="btn-buy"><span class="material-icons">shopping_cart</span> Comprar</a>
+                            <a href="{% url 'add_to_cart' listing.id %}?action=buy&next={% url 'listing_detail' listing.id %}" class="btn-buy">Adicionar ao carrinho</a>
                             {% if not listing.seller.is_store %}
-                                <a href="{% url 'add_to_cart' listing.id %}?action=trade&next={% url 'listing_detail' listing.id %}" class="btn-details"><span class="material-icons">handshake</span> Trocar</a>
+                                <a href="{% url 'add_to_cart' listing.id %}?action=trade&next={% url 'listing_detail' listing.id %}" class="btn-details">Solicitar troca</a>
                             {% endif %}
                         {% endif %}
                     {% endif %}
                 {% else %}
-                    <a href="{% url 'login' %}" class="btn-buy"><span class="material-icons">login</span> Faça login para comprar</a>
+                    <a href="{% url 'login' %}?next={% url 'listing_detail' listing.id %}" class="btn-buy">Entrar para comprar</a>
                 {% endif %}
-                <a href="{% url 'home' %}" class="btn-details"><span class="material-icons">arrow_back</span> Voltar</a>
+                <button type="button" class="btn-details" onclick="history.back()">Voltar</button>
             </div>
         </div>
     </div>
 
+    <!-- COMENTÁRIOS -->
     <div class="comments-section">
-        <h3><span class="material-icons">chat_bubble</span> Comentários</h3>
+        <h3 style="font-size: 1.15rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-white);">
+            <span class="material-icons" style="color: var(--accent-cyan); font-size: 1.2rem;">chat_bubble</span>
+            Comentários
+            {% if total_comments %}
+                <span class="badge badge-info" style="font-size: 0.75rem;">{{ total_comments }}</span>
+            {% endif %}
+        </h3>
 
-        {% if comments %}
-            <div class="comments-list">
+        <div id="comments-container">
+            {% if comments %}
                 {% for comment in comments %}
-                <div class="comment-card">
-                    <p class="comment-user"><strong>{{ comment.user.username }}</strong> · {{ comment.created_at|date:"d/m/Y H:i" }}</p>
-                    <p>{{ comment.content }}</p>
+                <div class="comment-card" data-comment-index="{{ forloop.counter0 }}" style="margin-bottom: 0.75rem;">
+
+                    <div class="comment-header">
+                        <div class="comment-author">
+                            <span class="material-icons">account_circle</span>
+                            <strong>{{ comment.user.username }}</strong>
+                        </div>
+                        <span class="comment-date">{{ comment.created_at|date:"d/m/Y H:i" }}</span>
+                    </div>
+
+                    <p class="comment-body">{{ comment.content }}</p>
+
+                    {% if user.is_authenticated and listing.status == 'active' %}
+                    <button type="button"
+                            class="comment-reply-btn"
+                            data-comment-id="{{ comment.id }}"
+                            data-username="{{ comment.user.username }}"
+                            onclick="toggleReplyForm({{ comment.id }}, '{{ comment.user.username }}')">
+                        <span class="material-icons">reply</span> Responder
+                    </button>
+                    {% endif %}
+
+                    <!-- Respostas -->
+                    {% if comment.replies.all %}
+                    <div class="replies-thread" id="replies-{{ comment.id }}">
+                        {% for reply in comment.replies.all %}
+                        <div class="reply-card" data-reply-index="{{ forloop.counter0 }}" {% if forloop.counter > 2 %}style="display:none"{% endif %}>
+                            <div class="comment-header" style="margin-bottom: 0.35rem;">
+                                <div class="comment-author">
+                                    <span class="material-icons" style="font-size: 14px;">account_circle</span>
+                                    <strong>{{ reply.user.username }}</strong>
+                                </div>
+                                <span class="comment-date">{{ reply.created_at|date:"d/m/Y H:i" }}</span>
+                            </div>
+                            <p class="comment-body">{{ reply.content }}</p>
+                        </div>
+                        {% endfor %}
+                        {% if comment.replies.count > 2 %}
+                        <button type="button"
+                                class="show-replies-btn"
+                                onclick="showAllReplies({{ comment.id }})">
+                            <span class="material-icons">expand_more</span>
+                            Ver mais {{ comment.replies.count|add:"-2" }} resposta{{ comment.replies.count|add:"-2"|pluralize:"s" }}
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Form de resposta inline -->
+                    {% if user.is_authenticated %}
+                    <div class="reply-form-wrapper" id="reply-form-{{ comment.id }}">
+                        <form method="post" action="{% url 'listing_detail' listing.id %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                            <textarea name="content"
+                                      placeholder="Respondendo a {{ comment.user.username }}..."
+                                      required
+                                      maxlength="1000"
+                                      id="reply-textarea-{{ comment.id }}"></textarea>
+                            <div class="reply-form-actions">
+                                <button type="submit" class="btn-secondary" style="padding: 0.45rem 1rem; font-size: 0.82rem;">Enviar</button>
+                                <button type="button"
+                                        class="btn-details"
+                                        style="padding: 0.45rem 1rem; font-size: 0.82rem; width: auto !important;"
+                                        onclick="toggleReplyForm({{ comment.id }})">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+                    {% endif %}
+
                 </div>
                 {% endfor %}
-            </div>
-        {% else %}
-            <p class="empty-state">Ainda não há comentários para este produto.</p>
-        {% endif %}
 
-        {% if user.is_authenticated %}
-        <div class="comment-form-card">
-            <form method="post">
+                {% if comments|length > 5 %}
+                <button type="button" class="load-more-comments" id="load-more-btn">
+                    <span class="material-icons">expand_more</span>
+                    <span id="load-more-text">Ver mais comentários</span>
+                </button>
+                {% endif %}
+
+            {% else %}
+                <div class="empty-state" style="padding: 2rem 1rem;">
+                    <span class="material-icons empty-icon" style="font-size: 2.5rem;">chat_bubble_outline</span>
+                    <p>Nenhum comentário ainda. Seja o primeiro!</p>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if user.is_authenticated and listing.status == 'active' %}
+        <div class="comment-form-card" style="margin-top: 1.5rem;">
+            <p style="font-size: 0.88rem; color: var(--text-muted); margin: 0 0 0.75rem; display: flex; align-items: center; gap: 0.35rem;">
+                <span class="material-icons" style="font-size: 16px;">edit</span>
+                Deixe um comentário público sobre este anúncio
+            </p>
+            <form method="post" action="{% url 'listing_detail' listing.id %}">
                 {% csrf_token %}
                 <div class="comment-field">
                     {{ comment_form.content }}
                     {{ comment_form.content.errors }}
                 </div>
-                <button type="submit" class="btn-secondary">Enviar comentário</button>
+                <button type="submit" class="btn-secondary" style="margin-top: 0.5rem;">Comentar</button>
             </form>
         </div>
-        {% else %}
-            <p class="empty-state">Faça login para deixar um comentário.</p>
+        {% elif not user.is_authenticated %}
+            <p style="text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-top: 1.5rem;">
+                <a href="{% url 'login' %}" class="seller-link">Faça login</a> para deixar um comentário.
+            </p>
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ---- Gallery ----
+const thumbs = document.querySelectorAll('.gallery-thumb');
+const mainImg = document.getElementById('gallery-main-img');
+
+thumbs.forEach(thumb => {
+    const activate = () => {
+        thumbs.forEach(t => t.classList.remove('active'));
+        thumb.classList.add('active');
+        if (mainImg) {
+            mainImg.style.opacity = '0.6';
+            mainImg.src = thumb.dataset.src;
+            mainImg.onload = () => { mainImg.style.opacity = '1'; };
+        }
+    };
+    thumb.addEventListener('click', activate);
+    thumb.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
+});
+
+// ---- Load more comments ----
+const INITIAL_COUNT = 5;
+const commentCards = document.querySelectorAll('#comments-container .comment-card[data-comment-index]');
+const loadMoreBtn = document.getElementById('load-more-btn');
+const loadMoreText = document.getElementById('load-more-text');
+
+function initLoadMore() {
+    if (!loadMoreBtn) return;
+    const hidden = [];
+    commentCards.forEach((card, i) => {
+        if (i >= INITIAL_COUNT) {
+            card.style.display = 'none';
+            hidden.push(card);
+        }
+    });
+    if (hidden.length === 0) {
+        loadMoreBtn.style.display = 'none';
+        return;
+    }
+    loadMoreText.textContent = `Ver mais ${hidden.length} comentário${hidden.length > 1 ? 's' : ''}`;
+    loadMoreBtn.addEventListener('click', () => {
+        hidden.forEach(c => c.style.display = '');
+        loadMoreBtn.style.display = 'none';
+    });
+}
+
+initLoadMore();
+
+// ---- Reply forms ----
+function toggleReplyForm(commentId, username) {
+    const wrapper = document.getElementById('reply-form-' + commentId);
+    if (!wrapper) return;
+    const isOpen = wrapper.classList.contains('open');
+    // Fecha todos os outros
+    document.querySelectorAll('.reply-form-wrapper.open').forEach(w => w.classList.remove('open'));
+    if (!isOpen) {
+        wrapper.classList.add('open');
+        const ta = document.getElementById('reply-textarea-' + commentId);
+        if (ta) { ta.focus(); }
+    }
+}
+
+// ---- Show all replies ----
+function showAllReplies(commentId) {
+    const thread = document.getElementById('replies-' + commentId);
+    if (!thread) return;
+    thread.querySelectorAll('.reply-card[style*="display:none"]').forEach(r => r.style.display = '');
+    const btn = thread.querySelector('.show-replies-btn');
+    if (btn) btn.style.display = 'none';
+}
+</script>
 {% endblock %}

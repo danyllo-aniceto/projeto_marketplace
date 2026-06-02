@@ -1,224 +1,294 @@
 {% extends 'base.html' %}
 
-{% block title %}Histórico{% endblock %}
+{% block title %}Histórico — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2 class="section-title"><span class="material-icons">history</span> Histórico</h2>
-
-    <div class="summary-card" style="margin-bottom: 1.5rem;">
-        <p style="margin: 0; color: var(--text-muted);">Acompanhe suas compras e vendas em um só lugar, com os detalhes de cada transação.</p>
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">history</span> Histórico</h2>
     </div>
 
-    <div class="cart-tabs" style="margin-bottom: 1.5rem;">
-        <button class="cart-tab active" data-target="purchases-panel">Compras ({{ purchase_count }})</button>
-        <button class="cart-tab" data-target="sales-panel">Vendas ({{ sale_count }})</button>
-        <button class="cart-tab" data-target="sent-trades-panel">Trocas solicitadas ({{ sent_trade_count }})</button>
-        <button class="cart-tab" data-target="received-trades-panel">Trocas recebidas ({{ received_trade_count }})</button>
+    <div class="tab-nav">
+        <button class="tab-btn active" data-target="purchases-panel">
+            <span class="material-icons">shopping_bag</span>
+            Compras ({{ purchase_count }})
+        </button>
+        <button class="tab-btn" data-target="sales-panel">
+            <span class="material-icons">sell</span>
+            Vendas ({{ sale_count }})
+        </button>
+        <button class="tab-btn" data-target="sent-trades-panel">
+            <span class="material-icons">send</span>
+            Trocas enviadas ({{ sent_trade_count }})
+        </button>
+        <button class="tab-btn" data-target="received-trades-panel">
+            <span class="material-icons">inbox</span>
+            Trocas recebidas ({{ received_trade_count }})
+        </button>
     </div>
 
+    <!-- COMPRAS -->
     <div id="purchases-panel" class="cart-panel">
         {% if purchases_page_obj.object_list %}
             {% for order in purchases_page_obj %}
-                <div class="summary-card" style="margin-bottom: 1rem;">
-                    <div style="display:flex; justify-content:space-between; gap: 1rem; flex-wrap: wrap;">
+                <div class="history-card">
+                    <div class="history-card-header">
                         <div>
-                            <h3 style="margin-bottom: 0.25rem;">Compra #{{ order.id }}</h3>
-                            <p style="margin: 0; color: var(--text-muted);">{{ order.created_at|date:'d/m/Y H:i' }}</p>
+                            <h3 class="history-card-title">Compra #{{ order.id }}</h3>
+                            <p class="history-card-date">{{ order.created_at|date:'d/m/Y H:i' }}</p>
                         </div>
-                        <div>
-                            <p style="margin: 0;"><strong>Status:</strong> {{ order.get_status_display }}</p>
-                            <p style="margin: 0;"><strong>Total:</strong> R$ {{ order.total_amount|floatformat:2 }}</p>
+                        <div class="history-card-meta">
+                            {% if order.status == 'paid' or order.status == 'completed' or order.status == 'delivered' %}
+                                <span class="badge badge-approved">{{ order.get_status_display }}</span>
+                            {% elif order.status == 'cancelled' %}
+                                <span class="badge badge-rejected">{{ order.get_status_display }}</span>
+                            {% elif order.status == 'pending_payment' %}
+                                <span class="badge badge-pending">{{ order.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge badge-info">{{ order.get_status_display }}</span>
+                            {% endif %}
+                            <strong style="color: var(--accent-cyan); font-size: 1.05rem;">R$ {{ order.total_amount|floatformat:2 }}</strong>
                         </div>
                     </div>
-                    <div style="margin-top: 0.75rem;">
-                        <p style="margin-bottom: 0.5rem;"><strong>Pagamento:</strong> {{ order.get_payment_method_display }}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Entrega:</strong> {{ order.get_delivery_method_display }}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Itens:</strong></p>
+                    <div class="history-card-body">
+                        <span><strong>Pagamento:</strong> {{ order.get_payment_method_display }}</span>
+                        <span><strong>Entrega:</strong> {{ order.get_delivery_method_display }}</span>
+                        <span style="margin-top: 0.25rem;"><strong>Itens:</strong></span>
                         {% for item in order.items.all %}
-                            <p style="margin-left: 1rem; margin-bottom: 0.25rem;">{{ item.title_snapshot }} - {{ item.seller.username }} - R$ {{ item.unit_price_snapshot|floatformat:2 }}</p>
+                            <span style="margin-left: 1rem; color: var(--text-muted);">· {{ item.title_snapshot }} — {{ item.seller.username }} — R$ {{ item.unit_price_snapshot|floatformat:2 }}</span>
                         {% empty %}
-                            <p style="margin-left: 1rem;">Nenhum item encontrado.</p>
+                            <span style="margin-left: 1rem; color: var(--text-muted);">Nenhum item encontrado.</span>
                         {% endfor %}
                     </div>
-                    <div style="margin-top: 0.75rem;">
-                        <a href="{% url 'order_detail' order.id %}" class="btn-details">Ver detalhes da compra</a>
+                    <div class="history-card-actions">
+                        <a href="{% url 'order_detail' order.id %}" class="btn-details">
+                            <span class="material-icons">receipt_long</span> Ver detalhes
+                        </a>
                     </div>
                 </div>
             {% endfor %}
 
             {% if purchases_page_obj.paginator.num_pages > 1 %}
-                <div style="display:flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin: 1.5rem 0;">
+                <div class="pagination">
                     {% if purchases_page_obj.has_previous %}
-                        <a href="?purchase_page={{ purchases_page_obj.previous_page_number }}&sale_page={{ sales_page_obj.number }}&tab=compras" class="btn-details">Anterior</a>
+                        <a href="?purchase_page={{ purchases_page_obj.previous_page_number }}&sale_page={{ sales_page_obj.number }}&tab=compras" class="btn-details">
+                            <span class="material-icons">chevron_left</span> Anterior
+                        </a>
                     {% endif %}
-                    <span style="align-self:center;">Página {{ purchases_page_obj.number }} de {{ purchases_page_obj.paginator.num_pages }}</span>
+                    <span class="pagination-info">Página {{ purchases_page_obj.number }} de {{ purchases_page_obj.paginator.num_pages }}</span>
                     {% if purchases_page_obj.has_next %}
-                        <a href="?purchase_page={{ purchases_page_obj.next_page_number }}&sale_page={{ sales_page_obj.number }}&tab=compras" class="btn-details">Próxima</a>
+                        <a href="?purchase_page={{ purchases_page_obj.next_page_number }}&sale_page={{ sales_page_obj.number }}&tab=compras" class="btn-details">
+                            Próxima <span class="material-icons">chevron_right</span>
+                        </a>
                     {% endif %}
                 </div>
             {% endif %}
         {% else %}
             <div class="empty-state">
-                <p><span class="material-icons" style="font-size: 3rem; color: #999;">shopping_bag</span></p>
-                <p>Você ainda não possui compras registradas.</p>
+                <span class="material-icons empty-icon">shopping_bag</span>
+                <h3>Nenhuma compra registrada</h3>
+                <p>Suas compras aparecerão aqui após finalizar um pedido.</p>
             </div>
         {% endif %}
     </div>
 
+    <!-- VENDAS -->
     <div id="sales-panel" class="cart-panel" style="display:none;">
         {% if sales_page_obj.object_list %}
             {% for sale in sales_page_obj %}
-                <div class="summary-card" style="margin-bottom: 1rem;">
-                    <div style="display:flex; justify-content:space-between; gap: 1rem; flex-wrap: wrap;">
+                <div class="history-card">
+                    <div class="history-card-header">
                         <div>
-                            <h3 style="margin-bottom: 0.25rem;">Venda #{{ sale.id }}</h3>
-                            <p style="margin: 0; color: var(--text-muted);">{{ sale.order.created_at|date:'d/m/Y H:i' }}</p>
+                            <h3 class="history-card-title">Venda #{{ sale.id }}</h3>
+                            <p class="history-card-date">{{ sale.order.created_at|date:'d/m/Y H:i' }}</p>
                         </div>
-                        <div>
-                            <p style="margin: 0;"><strong>Comprador:</strong> {{ sale.order.buyer.username }}</p>
-                            <p style="margin: 0;"><strong>Valor:</strong> R$ {{ sale.unit_price_snapshot|floatformat:2 }}</p>
+                        <div class="history-card-meta">
+                            <span style="color: var(--text-muted); font-size: 0.88rem;">{{ sale.order.get_status_display }}</span>
+                            <strong style="color: var(--accent-cyan); font-size: 1.05rem;">R$ {{ sale.unit_price_snapshot|floatformat:2 }}</strong>
                         </div>
                     </div>
-                    <div style="margin-top: 0.75rem;">
-                        <p style="margin-bottom: 0.5rem;"><strong>Produto:</strong> {{ sale.title_snapshot }}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Quantidade:</strong> {{ sale.quantity }}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Pedido vinculado:</strong> #{{ sale.order.id }}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Pagamento:</strong> {{ sale.order.get_payment_method_display }}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Status do pedido:</strong> {{ sale.order.get_status_display }}</p>
+                    <div class="history-card-body">
+                        <span><strong>Produto:</strong> {{ sale.title_snapshot }}</span>
+                        <span><strong>Comprador:</strong> {{ sale.order.buyer.username }}</span>
+                        <span><strong>Quantidade:</strong> {{ sale.quantity }}</span>
+                        <span><strong>Pedido:</strong> #{{ sale.order.id }}</span>
+                        <span><strong>Pagamento:</strong> {{ sale.order.get_payment_method_display }}</span>
                     </div>
-                    <div style="margin-top: 0.75rem;">
-                        <a href="{% url 'order_detail' sale.order.id %}" class="btn-details">Ver pedido da venda</a>
+                    <div class="history-card-actions">
+                        <a href="{% url 'order_detail' sale.order.id %}" class="btn-details">
+                            <span class="material-icons">receipt_long</span> Ver pedido
+                        </a>
                     </div>
                 </div>
             {% endfor %}
 
             {% if sales_page_obj.paginator.num_pages > 1 %}
-                <div style="display:flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin: 1.5rem 0;">
+                <div class="pagination">
                     {% if sales_page_obj.has_previous %}
-                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.previous_page_number }}&tab=vendas" class="btn-details">Anterior</a>
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.previous_page_number }}&tab=vendas" class="btn-details">
+                            <span class="material-icons">chevron_left</span> Anterior
+                        </a>
                     {% endif %}
-                    <span style="align-self:center;">Página {{ sales_page_obj.number }} de {{ sales_page_obj.paginator.num_pages }}</span>
+                    <span class="pagination-info">Página {{ sales_page_obj.number }} de {{ sales_page_obj.paginator.num_pages }}</span>
                     {% if sales_page_obj.has_next %}
-                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.next_page_number }}&tab=vendas" class="btn-details">Próxima</a>
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.next_page_number }}&tab=vendas" class="btn-details">
+                            Próxima <span class="material-icons">chevron_right</span>
+                        </a>
                     {% endif %}
                 </div>
             {% endif %}
         {% else %}
             <div class="empty-state">
-                <p><span class="material-icons" style="font-size: 3rem; color: #999;">sell</span></p>
-                <p>Você ainda não possui vendas registradas.</p>
+                <span class="material-icons empty-icon">sell</span>
+                <h3>Nenhuma venda registrada</h3>
+                <p>Quando alguém comprar um seu anúncio, a venda aparecerá aqui.</p>
             </div>
         {% endif %}
     </div>
 
+    <!-- TROCAS ENVIADAS -->
     <div id="sent-trades-panel" class="cart-panel" style="display:none;">
         {% if sent_trades_page_obj.object_list %}
             {% for trade in sent_trades_page_obj %}
-                <div class="summary-card" style="margin-bottom: 1rem;">
-                    <div style="display:flex; justify-content:space-between; gap: 1rem; flex-wrap: wrap;">
+                <div class="history-card">
+                    <div class="history-card-header">
                         <div>
-                            <h3 style="margin-bottom: 0.25rem;">Solicitação #{{ trade.trade_request.id }}</h3>
-                            <p style="margin: 0; color: var(--text-muted);">{{ trade.trade_request.created_at|date:'d/m/Y H:i' }}</p>
+                            <h3 class="history-card-title">Troca #{{ trade.trade_request.id }}</h3>
+                            <p class="history-card-date">{{ trade.trade_request.created_at|date:'d/m/Y H:i' }}</p>
                         </div>
-                        <div>
-                            <p style="margin: 0;"><strong>Com:</strong> {{ trade.partner.username }}</p>
-                            <p style="margin: 0;"><strong>Status:</strong> {{ trade.trade_request.get_status_display }}</p>
+                        <div class="history-card-meta">
+                            {% with status=trade.trade_request.status %}
+                            {% if status == 'approved' or status == 'completed' %}
+                                <span class="badge badge-approved">{{ trade.trade_request.get_status_display }}</span>
+                            {% elif status == 'rejected' or status == 'cancelled' %}
+                                <span class="badge badge-rejected">{{ trade.trade_request.get_status_display }}</span>
+                            {% elif status == 'negotiating' %}
+                                <span class="badge badge-negotiating">{{ trade.trade_request.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge badge-pending">{{ trade.trade_request.get_status_display }}</span>
+                            {% endif %}
+                            {% endwith %}
                         </div>
                     </div>
-                    <div style="margin-top: 0.75rem;">
-                        <p style="margin-bottom: 0.5rem;"><strong>Anúncio:</strong> {{ trade.trade_request.listing.title }}</p>
-                        {% if trade.trade_request.listing.trade_suggestions %}
-                            <p style="margin-bottom: 0.5rem;"><strong>Sugestões do anúncio:</strong> {{ trade.trade_request.listing.trade_suggestions }}</p>
+                    <div class="history-card-body">
+                        <span><strong>Anúncio:</strong> {{ trade.trade_request.listing.title }}</span>
+                        <span><strong>Com:</strong> {{ trade.partner.username }}</span>
+                        {% if trade.trade_request.initial_message %}
+                            <span><strong>Mensagem:</strong> {{ trade.trade_request.initial_message|truncatechars:100 }}</span>
                         {% endif %}
-                        <p style="margin-bottom: 0.5rem;"><strong>Mensagem inicial:</strong> {{ trade.trade_request.initial_message|default:'-' }}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Propostas:</strong> {{ trade.proposal_count }}</p>
+                        <span><strong>Propostas:</strong> {{ trade.proposal_count }}</span>
                         {% if trade.latest_proposal %}
-                            <p style="margin-bottom: 0.5rem;"><strong>Última proposta:</strong> {{ trade.latest_proposal.item_description|default:'-' }}</p>
-                            <p style="margin-bottom: 0.5rem;"><strong>Volta em dinheiro:</strong> R$ {{ trade.latest_proposal.cash_amount|floatformat:2 }}</p>
-                        {% endif %}
-                        {% if trade.has_cash %}
-                            <p style="margin-bottom: 0.5rem;"><strong>Checkout de troca:</strong> valor adicional aguardando confirmação</p>
+                            <span><strong>Última proposta:</strong> {{ trade.latest_proposal.item_description|default:'-'|truncatechars:80 }}</span>
+                            {% if trade.latest_proposal.cash_amount %}
+                                <span><strong>Valor adicional:</strong> R$ {{ trade.latest_proposal.cash_amount|floatformat:2 }}</span>
+                            {% endif %}
                         {% endif %}
                     </div>
-                    <div style="margin-top: 0.75rem; display:flex; gap: 0.75rem; flex-wrap: wrap;">
-                        <a href="{% url 'trade_request_detail' trade.trade_request.id %}" class="btn-details">Ver negociação</a>
+                    <div class="history-card-actions">
+                        <a href="{% url 'trade_request_detail' trade.trade_request.id %}" class="btn-details">
+                            <span class="material-icons">handshake</span> Ver negociação
+                        </a>
                         {% if trade.trade_request.status == 'approved' %}
-                            <a href="{% url 'trade_checkout' trade.trade_request.id %}" class="btn-secondary">Ir para checkout</a>
+                            <a href="{% url 'trade_checkout' trade.trade_request.id %}" class="btn-secondary">
+                                <span class="material-icons">payment</span> Ir para checkout
+                            </a>
                         {% endif %}
                     </div>
                 </div>
             {% endfor %}
 
             {% if sent_trades_page_obj.paginator.num_pages > 1 %}
-                <div style="display:flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin: 1.5rem 0;">
+                <div class="pagination">
                     {% if sent_trades_page_obj.has_previous %}
-                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.previous_page_number }}&received_trade_page={{ received_trades_page_obj.number }}&tab=sent-trades" class="btn-details">Anterior</a>
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.previous_page_number }}&received_trade_page={{ received_trades_page_obj.number }}&tab=sent-trades" class="btn-details">
+                            <span class="material-icons">chevron_left</span> Anterior
+                        </a>
                     {% endif %}
-                    <span style="align-self:center;">Página {{ sent_trades_page_obj.number }} de {{ sent_trades_page_obj.paginator.num_pages }}</span>
+                    <span class="pagination-info">Página {{ sent_trades_page_obj.number }} de {{ sent_trades_page_obj.paginator.num_pages }}</span>
                     {% if sent_trades_page_obj.has_next %}
-                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.next_page_number }}&received_trade_page={{ received_trades_page_obj.number }}&tab=sent-trades" class="btn-details">Próxima</a>
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.next_page_number }}&received_trade_page={{ received_trades_page_obj.number }}&tab=sent-trades" class="btn-details">
+                            Próxima <span class="material-icons">chevron_right</span>
+                        </a>
                     {% endif %}
                 </div>
             {% endif %}
         {% else %}
             <div class="empty-state">
-                <p><span class="material-icons" style="font-size: 3rem; color: #999;">send</span></p>
-                <p>Você ainda não enviou trocas.</p>
+                <span class="material-icons empty-icon">send</span>
+                <h3>Nenhuma troca enviada</h3>
+                <p>Suas propostas de troca aparecerão aqui.</p>
             </div>
         {% endif %}
     </div>
 
+    <!-- TROCAS RECEBIDAS -->
     <div id="received-trades-panel" class="cart-panel" style="display:none;">
         {% if received_trades_page_obj.object_list %}
             {% for trade in received_trades_page_obj %}
-                <div class="summary-card" style="margin-bottom: 1rem;">
-                    <div style="display:flex; justify-content:space-between; gap: 1rem; flex-wrap: wrap;">
+                <div class="history-card">
+                    <div class="history-card-header">
                         <div>
-                            <h3 style="margin-bottom: 0.25rem;">Solicitação #{{ trade.trade_request.id }}</h3>
-                            <p style="margin: 0; color: var(--text-muted);">{{ trade.trade_request.created_at|date:'d/m/Y H:i' }}</p>
+                            <h3 class="history-card-title">Troca #{{ trade.trade_request.id }}</h3>
+                            <p class="history-card-date">{{ trade.trade_request.created_at|date:'d/m/Y H:i' }}</p>
                         </div>
-                        <div>
-                            <p style="margin: 0;"><strong>De:</strong> {{ trade.partner.username }}</p>
-                            <p style="margin: 0;"><strong>Status:</strong> {{ trade.trade_request.get_status_display }}</p>
+                        <div class="history-card-meta">
+                            {% with status=trade.trade_request.status %}
+                            {% if status == 'approved' or status == 'completed' %}
+                                <span class="badge badge-approved">{{ trade.trade_request.get_status_display }}</span>
+                            {% elif status == 'rejected' or status == 'cancelled' %}
+                                <span class="badge badge-rejected">{{ trade.trade_request.get_status_display }}</span>
+                            {% elif status == 'negotiating' %}
+                                <span class="badge badge-negotiating">{{ trade.trade_request.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge badge-pending">{{ trade.trade_request.get_status_display }}</span>
+                            {% endif %}
+                            {% endwith %}
                         </div>
                     </div>
-                    <div style="margin-top: 0.75rem;">
-                        <p style="margin-bottom: 0.5rem;"><strong>Anúncio:</strong> {{ trade.trade_request.listing.title }}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Mensagem inicial:</strong> {{ trade.trade_request.initial_message|default:'-' }}</p>
-                        <p style="margin-bottom: 0.5rem;"><strong>Propostas:</strong> {{ trade.proposal_count }}</p>
+                    <div class="history-card-body">
+                        <span><strong>Anúncio:</strong> {{ trade.trade_request.listing.title }}</span>
+                        <span><strong>De:</strong> {{ trade.partner.username }}</span>
+                        {% if trade.trade_request.initial_message %}
+                            <span><strong>Mensagem:</strong> {{ trade.trade_request.initial_message|truncatechars:100 }}</span>
+                        {% endif %}
+                        <span><strong>Propostas:</strong> {{ trade.proposal_count }}</span>
                         {% if trade.latest_proposal %}
-                            <p style="margin-bottom: 0.5rem;"><strong>Última proposta:</strong> {{ trade.latest_proposal.item_description|default:'-' }}</p>
-                            <p style="margin-bottom: 0.5rem;"><strong>Volta em dinheiro:</strong> R$ {{ trade.latest_proposal.cash_amount|floatformat:2 }}</p>
-                        {% endif %}
-                        {% if trade.trade_request.listing.trade_suggestions %}
-                            <p style="margin-bottom: 0.5rem;"><strong>Sugestões do anúncio:</strong> {{ trade.trade_request.listing.trade_suggestions }}</p>
+                            <span><strong>Última proposta:</strong> {{ trade.latest_proposal.item_description|default:'-'|truncatechars:80 }}</span>
                         {% endif %}
                     </div>
-                    <div style="margin-top: 0.75rem; display:flex; gap: 0.75rem; flex-wrap: wrap;">
-                        <a href="{% url 'trade_request_detail' trade.trade_request.id %}" class="btn-details">Analisar solicitação</a>
+                    <div class="history-card-actions">
+                        <a href="{% url 'trade_request_detail' trade.trade_request.id %}" class="btn-details">
+                            <span class="material-icons">handshake</span> Analisar solicitação
+                        </a>
                         {% if trade.trade_request.status == 'approved' %}
-                            <a href="{% url 'trade_checkout' trade.trade_request.id %}" class="btn-secondary">Ir para checkout</a>
+                            <a href="{% url 'trade_checkout' trade.trade_request.id %}" class="btn-secondary">
+                                <span class="material-icons">payment</span> Ir para checkout
+                            </a>
                         {% endif %}
                     </div>
                 </div>
             {% endfor %}
 
             {% if received_trades_page_obj.paginator.num_pages > 1 %}
-                <div style="display:flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; margin: 1.5rem 0;">
+                <div class="pagination">
                     {% if received_trades_page_obj.has_previous %}
-                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.number }}&received_trade_page={{ received_trades_page_obj.previous_page_number }}&tab=received-trades" class="btn-details">Anterior</a>
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.number }}&received_trade_page={{ received_trades_page_obj.previous_page_number }}&tab=received-trades" class="btn-details">
+                            <span class="material-icons">chevron_left</span> Anterior
+                        </a>
                     {% endif %}
-                    <span style="align-self:center;">Página {{ received_trades_page_obj.number }} de {{ received_trades_page_obj.paginator.num_pages }}</span>
+                    <span class="pagination-info">Página {{ received_trades_page_obj.number }} de {{ received_trades_page_obj.paginator.num_pages }}</span>
                     {% if received_trades_page_obj.has_next %}
-                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.number }}&received_trade_page={{ received_trades_page_obj.next_page_number }}&tab=received-trades" class="btn-details">Próxima</a>
+                        <a href="?purchase_page={{ purchases_page_obj.number }}&sale_page={{ sales_page_obj.number }}&sent_trade_page={{ sent_trades_page_obj.number }}&received_trade_page={{ received_trades_page_obj.next_page_number }}&tab=received-trades" class="btn-details">
+                            Próxima <span class="material-icons">chevron_right</span>
+                        </a>
                     {% endif %}
                 </div>
             {% endif %}
         {% else %}
             <div class="empty-state">
-                <p><span class="material-icons" style="font-size: 3rem; color: #999;">inbox</span></p>
-                <p>Você ainda não recebeu trocas.</p>
+                <span class="material-icons empty-icon">inbox</span>
+                <h3>Nenhuma troca recebida</h3>
+                <p>Quando alguém solicitar troca de um seu anúncio, aparecerá aqui.</p>
             </div>
         {% endif %}
     </div>
@@ -228,14 +298,13 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const tabs = document.querySelectorAll('.cart-tab');
+    const tabs = document.querySelectorAll('.tab-btn');
     const panels = document.querySelectorAll('.cart-panel');
 
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
             tabs.forEach(item => item.classList.remove('active'));
             tab.classList.add('active');
-
             panels.forEach(panel => panel.style.display = 'none');
             const target = document.getElementById(tab.dataset.target);
             if (target) target.style.display = 'block';
@@ -244,14 +313,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const initialTab = new URLSearchParams(window.location.search).get('tab');
     if (initialTab === 'vendas') {
-        const salesTab = document.querySelector('[data-target="sales-panel"]');
-        if (salesTab) salesTab.click();
+        document.querySelector('[data-target="sales-panel"]')?.click();
     } else if (initialTab === 'sent-trades') {
-        const sentTradeTab = document.querySelector('[data-target="sent-trades-panel"]');
-        if (sentTradeTab) sentTradeTab.click();
+        document.querySelector('[data-target="sent-trades-panel"]')?.click();
     } else if (initialTab === 'received-trades') {
-        const receivedTradeTab = document.querySelector('[data-target="received-trades-panel"]');
-        if (receivedTradeTab) receivedTradeTab.click();
+        document.querySelector('[data-target="received-trades-panel"]')?.click();
     }
 });
 </script>

@@ -1,165 +1,447 @@
 {% extends 'base.html' %}
 
-{% block title %}Checkout{% endblock %}
+{% block title %}Checkout{% if show_qr_simulation %} — Confirmar pagamento{% endif %} — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2 class="section-title"><span class="material-icons">payment</span> Checkout</h2>
 
-    {% if messages %}
-        <div class="alert-container" style="margin-bottom: 1rem;">
-            {% for message in messages %}
-                <div class="alert-message {{ message.tags }}" style="margin-bottom: 0.75rem;">
-                    {{ message }}
+    <nav class="breadcrumb">
+        <a href="{% url 'home' %}">Início</a>
+        <span class="material-icons">chevron_right</span>
+        <a href="{% url 'cart' %}">Carrinho</a>
+        <span class="material-icons">chevron_right</span>
+        <span class="breadcrumb-current">{% if show_qr_simulation %}Confirmar pagamento{% else %}Checkout{% endif %}</span>
+    </nav>
+
+    <div class="page-header">
+        <h2 class="section-title">
+            <span class="material-icons">payment</span>
+            {% if show_qr_simulation %}Confirmar Pagamento{% else %}Checkout{% endif %}
+        </h2>
+    </div>
+
+    {% if buy_items or trade_items %}
+
+    {# ===================== APENAS TROCAS ===================== #}
+    {% if not buy_items and trade_items %}
+    <div class="checkout-grid">
+        <div>
+            <div class="checkout-items-card">
+                <h3><span class="material-icons">compare_arrows</span> Itens para troca</h3>
+                {% for item in trade_items %}
+                <div class="checkout-order-item">
+                    <div class="checkout-order-thumb">
+                        {% if item.listing.images.all %}
+                            <img src="{{ item.listing.images.first.image.url }}" alt="{{ item.listing.title }}">
+                        {% else %}
+                            <span class="material-icons">devices</span>
+                        {% endif %}
+                    </div>
+                    <span class="checkout-order-name">{{ item.listing.title }}</span>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">{{ item.listing.seller.username }}</span>
                 </div>
-            {% endfor %}
+                {% endfor %}
+            </div>
         </div>
-    {% endif %}
+        <div class="checkout-summary-card">
+            <h3><span class="material-icons">handshake</span> Iniciar negociações</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; margin: 0 0 1.25rem;">
+                As solicitações de troca serão criadas e cada vendedor será notificado. Você acompanha as negociações em <strong>Trocas</strong>.
+            </p>
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn-secondary" style="width: 100%;">Criar solicitações de troca</button>
+            </form>
+            <div style="margin-top: 0.75rem;">
+                <a href="{% url 'cart' %}" class="btn-details" style="width: 100%; justify-content: center;">Voltar ao carrinho</a>
+            </div>
+        </div>
+    </div>
 
-    <div class="cart-grid">
-        <div class="cart-items">
-            {% if buy_items %}
-                <div class="summary-card" style="margin-bottom: 1.5rem;">
-                    <h3>Itens para compra</h3>
-                    {% for item in buy_items %}
-                        <p>{{ item.listing.title }} - R$ {{ item.listing.price|floatformat:2 }}</p>
-                    {% endfor %}
-                    <p><strong>Total de compra: R$ {{ total|floatformat:2 }}</strong></p>
+    {# ===================== COMPRA: PASSO 2 — QR ===================== #}
+    {% elif buy_items and show_qr_simulation %}
+    <div class="checkout-grid">
+
+        <!-- Coluna esquerda: resumo confirmado -->
+        <div>
+            <div class="checkout-items-card">
+                <h3>
+                    <span class="material-icons" style="color: var(--success-color);">check_circle</span>
+                    Pedido revisado
+                </h3>
+                {% for item in buy_items %}
+                <div class="checkout-order-item">
+                    <div class="checkout-order-thumb">
+                        {% if item.listing.images.all %}
+                            <img src="{{ item.listing.images.first.image.url }}" alt="{{ item.listing.title }}">
+                        {% else %}
+                            <span class="material-icons">devices</span>
+                        {% endif %}
+                    </div>
+                    <span class="checkout-order-name">{{ item.listing.title }}</span>
+                    <span class="checkout-order-price">R$ {{ item.listing.price|floatformat:2 }}</span>
                 </div>
-            {% endif %}
+                {% endfor %}
+                <div style="display: flex; justify-content: space-between; padding: 0.75rem 0 0; border-top: 1px solid var(--border-color); margin-top: 0.25rem;">
+                    <strong style="color: var(--text-white);">Total</strong>
+                    <strong style="color: var(--accent-cyan); font-size: 1.15rem;">R$ {{ total|floatformat:2 }}</strong>
+                </div>
+            </div>
+
+            <div style="margin-top: 0.85rem; padding: 0.85rem 1rem; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); background: rgba(255,255,255,0.02);">
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0 0 0.2rem;">
+                    <span class="material-icons" style="font-size: 14px; vertical-align: middle;">lock</span>
+                    O pedido só é confirmado após clicar no botão ao lado.
+                </p>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+                    <span class="material-icons" style="font-size: 14px; vertical-align: middle;">schedule</span>
+                    Referência expira em 15 minutos.
+                </p>
+            </div>
+        </div>
+
+        <!-- Coluna direita: QR de confirmação -->
+        <div class="checkout-summary-card">
+
+            <!-- Indicador de passo -->
+            <div class="checkout-steps">
+                <div class="checkout-step done">
+                    <div class="checkout-step-num"><span class="material-icons" style="font-size: 14px;">check</span></div>
+                    <span>Dados</span>
+                </div>
+                <div class="checkout-step-connector done"></div>
+                <div class="checkout-step active">
+                    <div class="checkout-step-num">2</div>
+                    <span>Pagamento</span>
+                </div>
+            </div>
+
+            <!-- Aviso de simulação -->
+            <div class="simulation-notice">
+                <span class="material-icons">school</span>
+                <div>
+                    <strong>Ambiente acadêmico — simulação</strong>
+                    <p>Nenhum pagamento real será processado. Este QR Code é apenas ilustrativo para fins de demonstração.</p>
+                </div>
+            </div>
+
+            <!-- QR Code -->
+            <div class="checkout-qr-display">
+                <div class="checkout-qr-grid">
+                    {% for row in qr_pattern %}
+                        {% for cell in row %}
+                            <div style="background: {% if cell == '1' %}#111827{% else %}#ffffff{% endif %}; border-radius: 1px;"></div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+                <div class="checkout-qr-token">
+                    Referência: <strong>{{ qr_token }}</strong>
+                </div>
+            </div>
+
+            <!-- Confirmar -->
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="confirm_purchase" value="1">
+                <button type="submit" class="btn-secondary" style="width: 100%; padding: 0.9rem; font-size: 1rem;">
+                    Confirmar pagamento
+                </button>
+            </form>
+
+            <div style="margin-top: 0.6rem;">
+                <a href="{% url 'cart' %}" class="btn-details" style="width: 100%; justify-content: center; font-size: 0.85rem;">
+                    Cancelar e voltar ao carrinho
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {# ===================== COMPRA: PASSO 1 — FORMULÁRIO ===================== #}
+    {% elif buy_items %}
+    <div class="checkout-grid">
+
+        <!-- Coluna esquerda: resumo do pedido -->
+        <div>
+            <div class="checkout-items-card">
+                <h3><span class="material-icons">shopping_bag</span> Itens do pedido</h3>
+                {% for item in buy_items %}
+                <div class="checkout-order-item">
+                    <div class="checkout-order-thumb">
+                        {% if item.listing.images.all %}
+                            <img src="{{ item.listing.images.first.image.url }}" alt="{{ item.listing.title }}">
+                        {% else %}
+                            <span class="material-icons">devices</span>
+                        {% endif %}
+                    </div>
+                    <span class="checkout-order-name">{{ item.listing.title }}</span>
+                    <span class="checkout-order-price">R$ {{ item.listing.price|floatformat:2 }}</span>
+                </div>
+                {% endfor %}
+                <div style="display: flex; justify-content: space-between; padding: 0.75rem 0 0; border-top: 1px solid var(--border-color); margin-top: 0.25rem;">
+                    <strong style="color: var(--text-white);">Total</strong>
+                    <strong style="color: var(--accent-cyan); font-size: 1.15rem;">R$ {{ total|floatformat:2 }}</strong>
+                </div>
+            </div>
 
             {% if trade_items %}
-                <div class="summary-card" style="margin-bottom: 1.5rem;">
-                    <h3>Itens para troca</h3>
-                    <p>Esses itens serão encaminhados para negociação separada.</p>
-                    {% for item in trade_items %}
-                        <p>{{ item.listing.title }} - {{ item.listing.seller.username }}</p>
-                    {% endfor %}
+            <div class="checkout-items-card" style="margin-top: 0.85rem;">
+                <h3><span class="material-icons">compare_arrows</span> Também em troca</h3>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: -0.25rem 0 0.5rem; line-height: 1.5;">
+                    Esses itens seguem para negociação separada após confirmar a compra.
+                </p>
+                {% for item in trade_items %}
+                <div class="checkout-order-item">
+                    <div class="checkout-order-thumb">
+                        {% if item.listing.images.all %}
+                            <img src="{{ item.listing.images.first.image.url }}" alt="{{ item.listing.title }}">
+                        {% else %}
+                            <span class="material-icons">devices</span>
+                        {% endif %}
+                    </div>
+                    <span class="checkout-order-name">{{ item.listing.title }}</span>
+                    <span style="font-size: 0.78rem; color: var(--text-muted);">{{ item.listing.seller.username }}</span>
                 </div>
+                {% endfor %}
+            </div>
             {% endif %}
         </div>
 
-        <div class="cart-summary">
-            <div class="summary-card">
-                <h3>Dados do checkout</h3>
+        <!-- Coluna direita: formulário -->
+        <div class="checkout-summary-card">
 
-                {% if show_qr_simulation %}
-                    <div style="margin-bottom: 1rem; padding: 1rem; border: 1px solid var(--border-color); border-radius: 16px; background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0));">
-                        <div style="display:flex; align-items:center; justify-content:space-between; gap: 1rem; margin-bottom: 0.75rem;">
-                            <div>
-                                <p style="margin: 0; font-weight: 700;">QR code de simulação</p>
-                                <p style="margin: 0; color: var(--text-muted);">Escaneamento apenas ilustrativo para finalizar a compra no sistema.</p>
-                            </div>
-                            <span class="material-icons" style="font-size: 2rem; color: var(--primary-color);">qr_code_2</span>
+            <!-- Indicador de passo -->
+            <div class="checkout-steps">
+                <div class="checkout-step active">
+                    <div class="checkout-step-num">1</div>
+                    <span>Dados do pedido</span>
+                </div>
+                <div class="checkout-step-connector"></div>
+                <div class="checkout-step">
+                    <div class="checkout-step-num">2</div>
+                    <span>Pagamento</span>
+                </div>
+            </div>
+
+            {% if form.non_field_errors %}
+            <div class="form-error-summary" style="margin-bottom: 1rem;">
+                <p><strong>Corrija os erros abaixo:</strong></p>
+                <ul>
+                    {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <form method="post" id="checkout-form" novalidate>
+                {% csrf_token %}
+
+                <!-- PAGAMENTO -->
+                <div style="margin-bottom: 1.1rem;">
+                    <p class="checkout-section-label">
+                        <span class="material-icons">payments</span> Forma de pagamento
+                    </p>
+                    <div class="checkout-method-cards" id="payment-cards">
+                        <div class="checkout-method-card {% if form.payment_method.value == 'pix' %}selected{% endif %}" data-group="payment" data-value="pix" role="button" tabindex="0">
+                            <span class="material-icons">qr_code_2</span>
+                            <strong>PIX</strong>
+                            <p>Instantâneo</p>
                         </div>
-                        <div style="display:flex; justify-content:center; margin-bottom: 0.75rem;">
-                            <div style="display:grid; grid-template-columns: repeat(21, 1fr); grid-template-rows: repeat(15, 1fr); gap: 2px; padding: 12px; background: #fff; border: 1px solid var(--border-color); border-radius: 12px; width: 100%; max-width: 320px; aspect-ratio: 1 / 1;">
-                                {% for row in qr_pattern %}
-                                    {% for cell in row %}
-                                        <div style="background: {% if cell == '1' %}#111827{% else %}#ffffff{% endif %}; border-radius: 2px;"></div>
-                                    {% endfor %}
-                                {% endfor %}
-                            </div>
+                        <div class="checkout-method-card {% if form.payment_method.value == 'credit_card' %}selected{% endif %}" data-group="payment" data-value="credit_card" role="button" tabindex="0">
+                            <span class="material-icons">credit_card</span>
+                            <strong>Crédito</strong>
+                            <p>Parcelável</p>
                         </div>
-                        <p style="margin: 0; font-size: 0.95rem; color: var(--text-muted);">Referência da simulação: <strong>{{ qr_token }}</strong></p>
+                        <div class="checkout-method-card {% if form.payment_method.value == 'debit_card' %}selected{% endif %}" data-group="payment" data-value="debit_card" role="button" tabindex="0">
+                            <span class="material-icons">payment</span>
+                            <strong>Débito</strong>
+                            <p>À vista</p>
+                        </div>
+                        <div class="checkout-method-card {% if form.payment_method.value == 'bank_transfer' %}selected{% endif %}" data-group="payment" data-value="bank_transfer" role="button" tabindex="0">
+                            <span class="material-icons">account_balance</span>
+                            <strong>Transferência</strong>
+                            <p>TED/DOC</p>
+                        </div>
                     </div>
+                    <div style="display:none;">{{ form.payment_method }}</div>
+                    {% if form.payment_method.errors %}<div class="field-error">{{ form.payment_method.errors }}</div>{% endif %}
+                </div>
 
-                    <form method="post" style="margin-bottom: 1rem;">
-                        {% csrf_token %}
-                        <input type="hidden" name="confirm_purchase" value="1">
-                        <button type="submit" class="btn-secondary" style="width: 100%;">Confirmar compra</button>
-                    </form>
-                {% endif %}
+                <!-- ENTREGA -->
+                <div style="margin-bottom: 1.1rem;">
+                    <p class="checkout-section-label">
+                        <span class="material-icons">local_shipping</span> Forma de entrega
+                    </p>
+                    <div class="checkout-method-cards" id="delivery-cards">
+                        <div class="checkout-method-card {% if form.delivery_method.value == 'pickup' %}selected{% endif %}" data-group="delivery" data-value="pickup" role="button" tabindex="0">
+                            <span class="material-icons">store</span>
+                            <strong>Retirada</strong>
+                            <p>Presencial</p>
+                        </div>
+                        <div class="checkout-method-card {% if form.delivery_method.value == 'seller_shipping' %}selected{% endif %}" data-group="delivery" data-value="seller_shipping" role="button" tabindex="0">
+                            <span class="material-icons">local_shipping</span>
+                            <strong>Frete</strong>
+                            <p>Pelo vendedor</p>
+                        </div>
+                        <div class="checkout-method-card {% if form.delivery_method.value == 'platform_shipping' %}selected{% endif %}" data-group="delivery" data-value="platform_shipping" role="button" tabindex="0">
+                            <span class="material-icons">inventory_2</span>
+                            <strong>Correios</strong>
+                            <p>Plataforma</p>
+                        </div>
+                        <div class="checkout-method-card {% if form.delivery_method.value == 'to_agree' or not form.delivery_method.value %}selected{% endif %}" data-group="delivery" data-value="to_agree" role="button" tabindex="0">
+                            <span class="material-icons">handshake</span>
+                            <strong>A combinar</strong>
+                            <p>Com vendedor</p>
+                        </div>
+                    </div>
+                    <div style="display:none;">{{ form.delivery_method }}</div>
+                    {% if form.delivery_method.errors %}<div class="field-error">{{ form.delivery_method.errors }}</div>{% endif %}
+                </div>
 
-                {% if buy_items %}
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="form-group">
-                        {{ form.payment_method.label_tag }}
-                        {{ form.payment_method }}
-                        {% if form.payment_method.errors %}
-                            <div class="error-message">{{ form.payment_method.errors }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="form-group">
-                        {{ form.delivery_method.label_tag }}
-                        {{ form.delivery_method }}
-                        {% if form.delivery_method.errors %}
-                            <div class="error-message">{{ form.delivery_method.errors }}</div>
-                        {% endif %}
-                    </div>
+                <!-- ENDEREÇO (oculto para Retirada) -->
+                <div id="address-section">
+                    <p class="checkout-section-label" style="margin-bottom: 0.85rem;">
+                        <span class="material-icons">location_on</span> Endereço de entrega
+                    </p>
+
                     <div class="form-row">
                         <div class="form-group">
                             {{ form.recipient_name.label_tag }}
                             {{ form.recipient_name }}
-                            {% if form.recipient_name.errors %}<div class="error-message">{{ form.recipient_name.errors }}</div>{% endif %}
+                            {% if form.recipient_name.errors %}<div class="field-error">{{ form.recipient_name.errors }}</div>{% endif %}
                         </div>
                         <div class="form-group">
                             {{ form.recipient_phone.label_tag }}
                             {{ form.recipient_phone }}
-                            {% if form.recipient_phone.errors %}<div class="error-message">{{ form.recipient_phone.errors }}</div>{% endif %}
+                            {% if form.recipient_phone.errors %}<div class="field-error">{{ form.recipient_phone.errors }}</div>{% endif %}
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             {{ form.postal_code.label_tag }}
                             {{ form.postal_code }}
-                            {% if form.postal_code.errors %}<div class="error-message">{{ form.postal_code.errors }}</div>{% endif %}
+                            {% if form.postal_code.errors %}<div class="field-error">{{ form.postal_code.errors }}</div>{% endif %}
                         </div>
                         <div class="form-group">
                             {{ form.state.label_tag }}
                             {{ form.state }}
-                            {% if form.state.errors %}<div class="error-message">{{ form.state.errors }}</div>{% endif %}
+                            {% if form.state.errors %}<div class="field-error">{{ form.state.errors }}</div>{% endif %}
                         </div>
                     </div>
                     <div class="form-group">
                         {{ form.street.label_tag }}
                         {{ form.street }}
-                        {% if form.street.errors %}<div class="error-message">{{ form.street.errors }}</div>{% endif %}
+                        {% if form.street.errors %}<div class="field-error">{{ form.street.errors }}</div>{% endif %}
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             {{ form.number.label_tag }}
                             {{ form.number }}
-                            {% if form.number.errors %}<div class="error-message">{{ form.number.errors }}</div>{% endif %}
+                            {% if form.number.errors %}<div class="field-error">{{ form.number.errors }}</div>{% endif %}
                         </div>
                         <div class="form-group">
                             {{ form.complement.label_tag }}
                             {{ form.complement }}
-                            {% if form.complement.errors %}<div class="error-message">{{ form.complement.errors }}</div>{% endif %}
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             {{ form.neighborhood.label_tag }}
                             {{ form.neighborhood }}
-                            {% if form.neighborhood.errors %}<div class="error-message">{{ form.neighborhood.errors }}</div>{% endif %}
+                            {% if form.neighborhood.errors %}<div class="field-error">{{ form.neighborhood.errors }}</div>{% endif %}
                         </div>
                         <div class="form-group">
                             {{ form.city.label_tag }}
                             {{ form.city }}
-                            {% if form.city.errors %}<div class="error-message">{{ form.city.errors }}</div>{% endif %}
+                            {% if form.city.errors %}<div class="field-error">{{ form.city.errors }}</div>{% endif %}
                         </div>
                     </div>
-                    <div class="form-group">
-                        {{ form.notes.label_tag }}
+                </div>
+
+                <!-- OBSERVAÇÕES -->
+                <details style="margin-bottom: 1rem;">
+                    <summary style="font-size: 0.82rem; color: var(--text-muted); cursor: pointer; padding: 0.35rem 0; user-select: none;">
+                        Adicionar observação (opcional)
+                    </summary>
+                    <div class="form-group" style="margin-top: 0.5rem;">
                         {{ form.notes }}
                     </div>
-                    <button type="submit" class="btn-secondary">Gerar QR de simulação</button>
-                </form>
-                {% else %}
-                    <p style="margin-bottom: 1rem;">Você só tem itens de troca no carrinho. Ao confirmar, as solicitações serão criadas e você será levado para a tela de negociações.</p>
-                    <form method="post">
-                        {% csrf_token %}
-                        <button type="submit" class="btn-secondary">Criar solicitações de troca</button>
-                    </form>
-                {% endif %}
+                </details>
 
-                <div style="margin-top: 1rem;">
-                    <a href="{% url 'cart' %}" class="btn-details">Voltar ao carrinho</a>
-                </div>
+                <button type="submit" class="btn-secondary" style="width: 100%; padding: 0.9rem; font-size: 0.95rem;">
+                    Revisar pedido →
+                </button>
+            </form>
+
+            <div style="margin-top: 0.6rem;">
+                <a href="{% url 'cart' %}" class="btn-details" style="width: 100%; justify-content: center; font-size: 0.85rem;">
+                    Voltar ao carrinho
+                </a>
             </div>
         </div>
     </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <span class="material-icons empty-icon">shopping_cart</span>
+        <h3>Carrinho vazio</h3>
+        <p>Adicione produtos ao carrinho antes de fazer o checkout.</p>
+        <a href="{% url 'cart' %}" class="btn-secondary" style="margin-top: 0.5rem;">Ir para o carrinho</a>
+    </div>
+    {% endif %}
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // ---- Cards de seleção (pagamento + entrega) ----
+    function initMethodCards(groupName, selectId) {
+        const select = document.getElementById(selectId);
+        const cards = document.querySelectorAll(`.checkout-method-card[data-group="${groupName}"]`);
+        if (!select || !cards.length) return;
+
+        const activate = (card) => {
+            cards.forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            select.value = card.dataset.value;
+            select.dispatchEvent(new Event('change'));
+        };
+
+        cards.forEach(card => {
+            card.addEventListener('click', () => activate(card));
+            card.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(card); }
+            });
+        });
+
+        // Inicializa: se nenhum selecionado, marca o primeiro
+        if (!document.querySelector(`.checkout-method-card[data-group="${groupName}"].selected`)) {
+            const first = cards[0];
+            if (first) { first.classList.add('selected'); select.value = first.dataset.value; }
+        }
+    }
+
+    initMethodCards('payment', 'id_payment_method');
+    initMethodCards('delivery', 'id_delivery_method');
+
+    // ---- Mostrar/ocultar endereço conforme entrega ----
+    const deliverySelect = document.getElementById('id_delivery_method');
+    const addressSection = document.getElementById('address-section');
+
+    function toggleAddress() {
+        if (!deliverySelect || !addressSection) return;
+        const isPickup = deliverySelect.value === 'pickup';
+        addressSection.style.display = isPickup ? 'none' : '';
+    }
+
+    if (deliverySelect) {
+        deliverySelect.addEventListener('change', toggleAddress);
+        toggleAddress();
+    }
+});
+</script>
 {% endblock %}

@@ -56,7 +56,7 @@ def remove_from_cart(request, pk):
 @login_required
 def cart_view(request):
     cart, _ = Cart.objects.get_or_create(user=request.user)
-    items = cart.items.select_related('listing', 'listing__seller', 'listing__category').all().order_by('-added_at')
+    items = cart.items.select_related('listing', 'listing__seller', 'listing__category').prefetch_related('listing__images').all().order_by('-added_at')
     buy_items = [item for item in items if item.desired_action == CartItem.BUY]
     trade_items = [item for item in items if item.desired_action == CartItem.TRADE]
     total = sum(item.listing.price for item in buy_items)

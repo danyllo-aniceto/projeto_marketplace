@@ -1,45 +1,56 @@
 {% extends 'base.html' %}
 
-{% block title %}Pedidos{% endblock %}
+{% block title %}Meus Pedidos — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2 class="section-title"><span class="material-icons">receipt_long</span> Meus Pedidos</h2>
-
-    {% if messages %}
-        <div class="alert-container" style="margin-bottom: 1rem;">
-            {% for message in messages %}
-                <div class="alert-message {{ message.tags }}" style="margin-bottom: 0.75rem;">{{ message }}</div>
-            {% endfor %}
-        </div>
-    {% endif %}
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">receipt_long</span> Meus Pedidos</h2>
+    </div>
 
     {% if orders %}
         <div class="products-grid">
             {% for order in orders %}
-                <div class="product-card">
-                    <div class="product-info">
-                        <h3 class="product-title">Pedido #{{ order.id }}</h3>
-                        <p class="product-description">{{ order.created_at|date:'d/m/Y H:i' }}</p>
-                        <div class="product-details">
-                            <span><span class="material-icons">payments</span> {{ order.get_payment_method_display }}</span>
-                            <span><span class="material-icons">local_shipping</span> {{ order.get_delivery_method_display }}</span>
-                        </div>
-                        <div class="product-price">{{ order.get_status_display }}</div>
-                        {% if order.delivery %}
-                            <p style="margin-top: 0.5rem;"><strong>Entrega:</strong> {{ order.delivery.get_status_display }}</p>
+                <div class="trade-card">
+                    <div class="trade-card-header">
+                        <h3 class="trade-card-title">Pedido #{{ order.id }}</h3>
+                        {% if order.status == 'paid' or order.status == 'completed' or order.status == 'delivered' %}
+                            <span class="badge badge-approved">{{ order.get_status_display }}</span>
+                        {% elif order.status == 'cancelled' %}
+                            <span class="badge badge-rejected">{{ order.get_status_display }}</span>
+                        {% elif order.status == 'pending_payment' %}
+                            <span class="badge badge-pending">{{ order.get_status_display }}</span>
+                        {% else %}
+                            <span class="badge badge-info">{{ order.get_status_display }}</span>
                         {% endif %}
-                        <div class="product-actions">
-                            <a href="{% url 'order_detail' order.id %}" class="btn-details">Abrir pedido</a>
-                        </div>
+                    </div>
+                    <p class="trade-card-description">{{ order.created_at|date:'d/m/Y H:i' }}</p>
+                    <div class="trade-card-meta">
+                        <span><span class="material-icons">payments</span> {{ order.get_payment_method_display }}</span>
+                        <span><span class="material-icons">local_shipping</span> {{ order.get_delivery_method_display }}</span>
+                    </div>
+                    <p style="color: var(--accent-cyan); font-weight: 700; font-size: 1.1rem; margin: 0.25rem 0 0;">
+                        R$ {{ order.total_amount|floatformat:2 }}
+                    </p>
+                    {% if order.delivery %}
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.2rem 0 0;">
+                            Entrega: {{ order.delivery.get_status_display }}
+                        </p>
+                    {% endif %}
+                    <div class="trade-card-actions">
+                        <a href="{% url 'order_detail' order.id %}" class="btn-details">
+                            <span class="material-icons">receipt_long</span> Abrir pedido
+                        </a>
                     </div>
                 </div>
             {% endfor %}
         </div>
     {% else %}
         <div class="empty-state">
-            <p><span class="material-icons" style="font-size: 3rem; color: #999;">receipt_long</span></p>
-            <p>Você ainda não possui pedidos.</p>
+            <span class="material-icons empty-icon">receipt_long</span>
+            <h3>Nenhum pedido ainda</h3>
+            <p>Seus pedidos aparecerão aqui após finalizar uma compra.</p>
+            <a href="{% url 'home' %}" class="btn-secondary" style="margin-top: 0.5rem;">Ver produtos</a>
         </div>
     {% endif %}
 </div>

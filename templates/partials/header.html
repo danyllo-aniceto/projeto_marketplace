@@ -61,17 +61,8 @@
                 <li><a href="{% url 'my_listings' %}"><span class="material-icons">list_alt</span> Meus anúncios</a></li>
                 <li><a href="{% url 'orders' %}"><span class="material-icons">shopping_bag</span> Pedidos</a></li>
                 <li><a href="{% url 'trade_requests' %}"><span class="material-icons">compare_arrows</span> Trocas</a></li>
-                <li><a href="{% url 'checkout' %}"><span class="material-icons">payment</span> Checkout</a></li>
             </ul>
         </div>
-
-        {% if user.is_authenticated %}
-            <a href="{% url 'edit_profile' %}" class="btn-primary">Perfil</a>
-            <a href="{% url 'logout' %}" class="btn-primary">Sair</a>
-        {% else %}
-            <a href="{% url 'login' %}" class="btn-primary">Login</a>
-            <a href="{% url 'register' %}" class="btn-secondary">Cadastro</a>
-        {% endif %}
     </nav>
 </header>
 

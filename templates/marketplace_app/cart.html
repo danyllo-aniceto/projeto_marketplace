@@ -1,46 +1,60 @@
 {% extends 'base.html' %}
 
-{% block title %}Carrinho{% endblock %}
+{% block title %}Carrinho — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2 class="section-title"><span class="material-icons">shopping_cart</span> Meu Carrinho</h2>
-
-    {% if messages %}
-        <div class="alert-container" style="margin-bottom: 1rem;">
-            {% for message in messages %}
-                <div class="alert-message {{ message.tags }}" style="margin-bottom: 0.75rem;">
-                    {{ message }}
-                </div>
-            {% endfor %}
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">shopping_cart</span> Meu Carrinho</h2>
+        <div class="page-header-actions">
+            <a href="{% url 'home' %}" class="btn-primary">Continuar comprando</a>
         </div>
-    {% endif %}
+    </div>
 
     {% if items %}
         <div class="cart-grid">
+
+            <!-- LISTA DE ITENS -->
             <div class="cart-items">
-                <div class="cart-tabs">
-                    <button class="cart-tab active" data-target="buy-panel">Compras ({{ buy_items|length }})</button>
-                    <button class="cart-tab" data-target="trade-panel">Trocas ({{ trade_items|length }})</button>
+                <div class="tab-nav">
+                    <button class="tab-btn active" data-target="buy-panel">
+                        <span class="material-icons">shopping_bag</span>
+                        Compras ({{ buy_items|length }})
+                    </button>
+                    <button class="tab-btn" data-target="trade-panel">
+                        <span class="material-icons">compare_arrows</span>
+                        Trocas ({{ trade_items|length }})
+                    </button>
                 </div>
 
+                <!-- PAINEL: COMPRAS -->
                 <div id="buy-panel" class="cart-panel">
                     {% if buy_items %}
                         {% for item in buy_items %}
                         <div class="cart-item-card">
+
+                            <!-- Thumbnail -->
+                            <div class="cart-item-thumb">
+                                {% if item.listing.images.all %}
+                                    <img src="{{ item.listing.images.first.image.url }}" alt="{{ item.listing.title }}">
+                                {% else %}
+                                    <span class="material-icons">devices</span>
+                                {% endif %}
+                            </div>
+
                             <div class="cart-item-content">
                                 <h3>{{ item.listing.title }}</h3>
                                 <p>{{ item.listing.description|truncatechars:100 }}</p>
-                                <p><strong>R$ {{ item.listing.price|floatformat:2 }}</strong></p>
-                                <p><strong>Destino:</strong> Compra</p>
-                                <div class="product-actions">
+                                <p class="cart-item-price">R$ {{ item.listing.price|floatformat:2 }}</p>
+
+                                <div class="cart-item-actions">
                                     <a href="{% url 'listing_detail' item.listing.id %}" class="btn-details">Ver detalhes</a>
-                                    <a href="{% url 'remove_from_cart' item.id %}" class="btn-buy">Remover</a>
+                                    <a href="{% url 'remove_from_cart' item.id %}" class="btn-danger">Remover</a>
                                     {% if item.listing.listing_type == 'both' %}
-                                    <form method="post" action="{% url 'update_cart_item_action' item.id %}" class="inline-form">
+                                    <form method="post" action="{% url 'update_cart_item_action' item.id %}" style="margin:0;">
                                         {% csrf_token %}
                                         <input type="hidden" name="desired_action" value="trade">
-                                        <button type="submit" class="btn-details">Mudar para troca</button>
+                                        <button type="submit" class="btn-primary">Mover para troca</button>
                                     </form>
                                     {% endif %}
                                 </div>
@@ -48,28 +62,47 @@
                         </div>
                         {% endfor %}
                     {% else %}
-                        <p class="empty-state">Nenhum item para compra.</p>
+                        <div class="empty-state" style="padding: 2rem 1rem;">
+                            <span class="material-icons empty-icon">shopping_bag</span>
+                            <h3>Nenhum item para compra</h3>
+                            <p>Adicione produtos ao carrinho para comprar.</p>
+                        </div>
                     {% endif %}
                 </div>
 
+                <!-- PAINEL: TROCAS -->
                 <div id="trade-panel" class="cart-panel" style="display:none;">
                     {% if trade_items %}
-                        <p class="empty-state" style="text-align:left; margin-bottom:1rem;">Esses itens vão para negociação separada e não entram no total de compra.</p>
+                        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.85rem; padding: 0.6rem 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: rgba(255,255,255,0.02);">
+                            Esses itens vão para negociação separada e <strong>não entram no total de compra</strong>.
+                        </p>
                         {% for item in trade_items %}
                         <div class="cart-item-card">
+
+                            <!-- Thumbnail -->
+                            <div class="cart-item-thumb">
+                                {% if item.listing.images.all %}
+                                    <img src="{{ item.listing.images.first.image.url }}" alt="{{ item.listing.title }}">
+                                {% else %}
+                                    <span class="material-icons">devices</span>
+                                {% endif %}
+                            </div>
+
                             <div class="cart-item-content">
                                 <h3>{{ item.listing.title }}</h3>
                                 <p>{{ item.listing.description|truncatechars:100 }}</p>
-                                <p><strong>R$ {{ item.listing.price|floatformat:2 }}</strong></p>
-                                <p><strong>Ação:</strong> Negociação</p>
-                                <div class="product-actions">
+                                <p class="cart-item-price" style="color: var(--text-muted); font-size: 0.85rem; font-weight: 400;">
+                                    Valor ref.: {% if item.listing.price %}R$ {{ item.listing.price|floatformat:2 }}{% else %}Negociável{% endif %}
+                                </p>
+
+                                <div class="cart-item-actions">
                                     <a href="{% url 'listing_detail' item.listing.id %}" class="btn-details">Ver detalhes</a>
-                                    <a href="{% url 'remove_from_cart' item.id %}" class="btn-buy">Remover</a>
+                                    <a href="{% url 'remove_from_cart' item.id %}" class="btn-danger">Remover</a>
                                     {% if item.listing.listing_type == 'both' %}
-                                    <form method="post" action="{% url 'update_cart_item_action' item.id %}" class="inline-form">
+                                    <form method="post" action="{% url 'update_cart_item_action' item.id %}" style="margin:0;">
                                         {% csrf_token %}
                                         <input type="hidden" name="desired_action" value="buy">
-                                        <button type="submit" class="btn-details">Mudar para compra</button>
+                                        <button type="submit" class="btn-primary">Mover para compra</button>
                                     </form>
                                     {% endif %}
                                 </div>
@@ -77,30 +110,60 @@
                         </div>
                         {% endfor %}
                     {% else %}
-                        <p class="empty-state">Nenhum item marcado para troca.</p>
+                        <div class="empty-state" style="padding: 2rem 1rem;">
+                            <span class="material-icons empty-icon">compare_arrows</span>
+                            <h3>Nenhum item para troca</h3>
+                            <p>Adicione produtos de troca para negociar.</p>
+                        </div>
                     {% endif %}
                 </div>
             </div>
 
+            <!-- RESUMO -->
             <div class="cart-summary">
                 <div class="summary-card">
-                    <h3>Resumo do carrinho</h3>
-                    <p>Total de compra: <strong>R$ {{ total|floatformat:2 }}</strong></p>
-                    <p>Itens de compra: <strong>{{ buy_items|length }}</strong></p>
-                    <p>Itens de troca: <strong>{{ trade_items|length }}</strong></p>
-                    <div id="summary-actions">
-                        <a href="{% url 'checkout' %}" class="btn-secondary" id="checkout-btn">Avançar para checkout</a>
-                        <a href="{% url 'checkout' %}?action=trade" class="btn-secondary" id="trade-btn" style="display:none;">Iniciar negociações</a>
+                    <h3><span class="material-icons">receipt_long</span> Resumo</h3>
+
+                    {% if buy_items %}
+                    <div style="margin-bottom: 0.5rem;">
+                        {% for item in buy_items %}
+                        <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            · {{ item.listing.title }}
+                        </p>
+                        {% endfor %}
                     </div>
-                    <a href="{% url 'home' %}" class="btn-details" style="margin-top: 0.75rem; display:inline-block;">Continuar comprando</a>
+                    {% endif %}
+
+                    <p><span>Itens de compra</span> <strong>{{ buy_items|length }}</strong></p>
+                    <p><span>Itens de troca</span> <strong>{{ trade_items|length }}</strong></p>
+
+                    <p class="summary-total">
+                        <span>Total de compra</span>
+                        <strong>R$ {{ total|floatformat:2 }}</strong>
+                    </p>
+
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+                        {% if buy_items %}
+                        <a href="{% url 'checkout' %}" class="btn-secondary" id="checkout-btn">
+                            Avançar para checkout
+                        </a>
+                        {% endif %}
+                        {% if trade_items %}
+                        <a href="{% url 'checkout' %}?action=trade" class="btn-primary" id="trade-btn"
+                           {% if buy_items %}style="display:none;"{% endif %}>
+                            Iniciar negociações
+                        </a>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
     {% else %}
         <div class="empty-state">
-            <p><span class="material-icons" style="font-size: 3rem; color: #999;">shopping_cart</span></p>
-            <p>Seu carrinho está vazio.</p>
-            <a href="{% url 'home' %}" class="btn-secondary">Ver produtos</a>
+            <span class="material-icons empty-icon">shopping_cart</span>
+            <h3>Seu carrinho está vazio</h3>
+            <p>Explore o marketplace e adicione produtos para comprar ou trocar.</p>
+            <a href="{% url 'home' %}" class="btn-secondary" style="margin-top: 0.5rem;">Ver produtos</a>
         </div>
     {% endif %}
 </div>
@@ -108,31 +171,41 @@
 
 {% block extra_js %}
 <script>
-    // Tabs logic for cart
-    document.addEventListener('DOMContentLoaded', function(){
-        const tabs = document.querySelectorAll('.cart-tab');
-        const panels = document.querySelectorAll('.cart-panel');
-        const checkoutBtn = document.getElementById('checkout-btn');
-        const tradeBtn = document.getElementById('trade-btn');
+document.addEventListener('DOMContentLoaded', function () {
+    const tabs = document.querySelectorAll('.tab-btn');
+    const panels = document.querySelectorAll('.cart-panel');
+    const checkoutBtn = document.getElementById('checkout-btn');
+    const tradeBtn = document.getElementById('trade-btn');
 
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
+    const hasBuyItems = {{ buy_items|length }} > 0;
+    const hasTradeItems = {{ trade_items|length }} > 0;
 
-                panels.forEach(p => p.style.display = 'none');
-                const target = document.getElementById(tab.dataset.target);
-                if (target) target.style.display = 'block';
+    function setButtonsForPanel(panelId) {
+        if (panelId === 'buy-panel') {
+            if (checkoutBtn) checkoutBtn.style.display = '';
+            if (tradeBtn) tradeBtn.style.display = 'none';
+        } else {
+            if (checkoutBtn) checkoutBtn.style.display = 'none';
+            if (tradeBtn) tradeBtn.style.display = '';
+        }
+    }
 
-                if (tab.dataset.target === 'buy-panel') {
-                    checkoutBtn.style.display = 'inline-block';
-                    tradeBtn.style.display = 'none';
-                } else {
-                    checkoutBtn.style.display = 'none';
-                    tradeBtn.style.display = 'inline-block';
-                }
-            });
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            panels.forEach(p => p.style.display = 'none');
+            const target = document.getElementById(tab.dataset.target);
+            if (target) target.style.display = 'block';
+            setButtonsForPanel(tab.dataset.target);
         });
     });
+
+    // Estado inicial: se só tem trocas, ativa a aba de trocas
+    if (!hasBuyItems && hasTradeItems) {
+        const tradeTab = document.querySelector('[data-target="trade-panel"]');
+        if (tradeTab) tradeTab.click();
+    }
+});
 </script>
 {% endblock %}

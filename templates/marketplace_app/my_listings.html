@@ -1,59 +1,127 @@
 {% extends 'base.html' %}
 
-{% block title %}Meus Anúncios{% endblock %}
+{% block title %}Meus Anúncios — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2 class="section-title"><span class="material-icons">inventory_2</span> Meus Anúncios</h2>
 
-    <div style="margin-bottom: 1.25rem; display: flex; justify-content: flex-end;">
-        <a href="{% url 'criar_anuncio' %}" class="btn-secondary">Criar novo anúncio</a>
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">inventory_2</span> Meus Anúncios</h2>
+        <div class="page-header-actions">
+            <a href="{% url 'criar_anuncio' %}" class="btn-secondary">Criar anúncio</a>
+        </div>
     </div>
 
-    {% if listings %}
-        <div class="products-grid home-products-grid">
+    {% if listings.object_list %}
+        <div class="home-products-grid">
             {% for anuncio in listings %}
-                <div class="product-card home-product-card">
-                    <div class="product-image">
-                        {% if anuncio.images.all %}
-                            <img src="{{ anuncio.images.first.image.url }}" alt="{{ anuncio.title }}">
-                        {% else %}
-                            <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #00d4ff, #0066ff); font-size: 3rem;"><span class="material-icons">devices</span></div>
+            <div class="my-listing-card">
+
+                <!-- Imagem -->
+                <div class="product-image">
+                    {% if anuncio.images.all %}
+                        <img src="{{ anuncio.images.first.image.url }}" alt="{{ anuncio.title }}">
+                    {% else %}
+                        <div class="product-image-placeholder"><span class="material-icons">devices</span></div>
+                    {% endif %}
+                </div>
+
+                <div class="my-listing-info">
+
+                    <!-- Badges: tipo + status -->
+                    <div class="my-listing-badges">
+                        <span class="listing-type-badge type-{{ anuncio.listing_type }}">
+                            {% if anuncio.listing_type == 'sale' %}Venda
+                            {% elif anuncio.listing_type == 'trade' %}Troca
+                            {% else %}Venda e Troca
+                            {% endif %}
+                        </span>
+                        {% if anuncio.id in locked_listing_ids %}
+                            <span class="badge badge-pending">Em negociação</span>
+                        {% elif anuncio.status == 'active' %}
+                            <span class="badge badge-approved">Ativo</span>
+                        {% elif anuncio.status == 'paused' %}
+                            <span class="badge badge-info">Pausado</span>
+                        {% elif anuncio.status == 'sold' %}
+                            <span class="badge badge-negotiating">Vendido</span>
                         {% endif %}
                     </div>
-                    <div class="product-info home-product-info">
-                        <h3 class="product-title home-product-title">{{ anuncio.title }}</h3>
-                        <p class="product-description home-product-description">{{ anuncio.description|truncatechars:100 }}</p>
-                        <div class="product-details home-product-details">
-                            <span><span class="material-icons">label</span> {{ anuncio.category.name }}</span>
-                            <span><span class="material-icons">inventory_2</span> {{ anuncio.get_condition_display }}</span>
-                        </div>
-                        <div class="product-price home-product-price">{% if anuncio.listing_type == 'trade' or anuncio.price is None %}Troca{% else %}R$ {{ anuncio.price|floatformat:2 }}{% endif %}</div>
-                        <div class="product-actions home-product-actions">
-                            <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details" title="Ver Detalhes">Ver Detalhes</a>
-                            {% if anuncio.status == 'active' and anuncio.id not in locked_listing_ids %}
-                                <a href="{% url 'edit_listing' anuncio.id %}" class="btn-buy" title="Editar"><span class="material-icons">edit</span></a>
-                            {% else %}
-                                <span class="btn-buy btn-disabled" title="Editar indisponível">Editar indisponível</span>
-                            {% endif %}
-                            <form method="post" action="{% url 'delete_listing' anuncio.id %}" class="inline-form delete-listing-form" data-listing-title="{{ anuncio.title|escapejs }}">
-                                {% csrf_token %}
-                                <button type="submit" class="btn-buy delete-trigger" title="Excluir" data-delete-trigger="true"><span class="material-icons">delete</span></button>
-                            </form>
-                        </div>
+
+                    <!-- Título -->
+                    <h3 class="my-listing-title">{{ anuncio.title }}</h3>
+
+                    <!-- Preço -->
+                    {% if anuncio.listing_type == 'trade' or anuncio.price is None %}
+                        <p class="my-listing-price-trade">Negociável</p>
+                    {% else %}
+                        <p class="my-listing-price">R$ {{ anuncio.price|floatformat:2 }}</p>
+                    {% endif %}
+
+                    <!-- Meta: condição + categoria -->
+                    <div class="my-listing-meta">
+                        <span class="my-listing-chip">
+                            <span class="material-icons">inventory_2</span>
+                            {{ anuncio.get_condition_display }}
+                        </span>
+                        <span class="my-listing-chip">
+                            <span class="material-icons">label</span>
+                            {{ anuncio.category.name }}
+                        </span>
                     </div>
+
+                    <div class="my-listing-spacer"></div>
+
+                    <!-- Ações: empilhadas, só texto -->
+                    <div class="my-listing-actions">
+                        <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details">Ver Detalhes</a>
+
+                        {% if anuncio.status == 'active' and anuncio.id not in locked_listing_ids %}
+                            <a href="{% url 'edit_listing' anuncio.id %}" class="btn-primary">Editar</a>
+                        {% elif anuncio.id in locked_listing_ids %}
+                            <span class="btn-primary btn-disabled">Em negociação</span>
+                        {% else %}
+                            <span class="btn-primary btn-disabled">Editar indisponível</span>
+                        {% endif %}
+
+                        <form method="post"
+                              action="{% url 'delete_listing' anuncio.id %}"
+                              class="delete-listing-form"
+                              data-listing-title="{{ anuncio.title|escapejs }}"
+                              style="margin: 0;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn-danger" data-delete-trigger="true">Excluir</button>
+                        </form>
+                    </div>
+
                 </div>
+            </div>
             {% endfor %}
         </div>
+
+        {% if listings.has_other_pages %}
+        <div class="pagination">
+            {% if listings.has_previous %}
+                <a href="?page={{ listings.previous_page_number }}" class="btn-details">Anterior</a>
+            {% endif %}
+            <span class="pagination-info">Página {{ listings.number }} de {{ listings.paginator.num_pages }}</span>
+            {% if listings.has_next %}
+                <a href="?page={{ listings.next_page_number }}" class="btn-details">Próxima</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
     {% else %}
         <div class="empty-state">
-            <p><span class="material-icons" style="font-size: 3rem; color: #999;">inventory_2</span></p>
-            <p>Você ainda não cadastrou nenhum anúncio.</p>
-            <a href="{% url 'criar_anuncio' %}" class="btn-secondary">Criar novo anúncio</a>
+            <span class="material-icons empty-icon">inventory_2</span>
+            <h3>Nenhum anúncio criado</h3>
+            <p>Você ainda não criou nenhum anúncio. Comece agora!</p>
+            <a href="{% url 'criar_anuncio' %}" class="btn-secondary" style="margin-top: 0.5rem;">Criar anúncio</a>
         </div>
     {% endif %}
+
 </div>
 
+<!-- Modal de confirmação de exclusão -->
 <div class="delete-modal" id="delete-modal" aria-hidden="true">
     <div class="delete-modal-backdrop" data-delete-cancel></div>
     <div class="delete-modal-card" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
@@ -66,65 +134,9 @@
     </div>
 </div>
 
-<style>
-.delete-modal {
-    position: fixed;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 3000;
-}
+{% endblock %}
 
-.delete-modal.open {
-    display: flex;
-}
-
-.delete-modal-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-}
-
-.delete-modal-card {
-    position: relative;
-    width: min(92vw, 420px);
-    background: linear-gradient(135deg, var(--secondary-dark), rgba(10, 35, 66, 0.96));
-    border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 1.5rem;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
-    z-index: 1;
-}
-
-.delete-modal-card h3 {
-    margin: 0 0 0.75rem;
-    color: var(--accent-cyan);
-}
-
-.delete-modal-card p {
-    margin: 0 0 1.25rem;
-    color: var(--text-gray);
-    line-height: 1.5;
-}
-
-.delete-modal-actions {
-    display: flex;
-    gap: 0.75rem;
-    justify-content: flex-end;
-}
-
-.delete-modal-actions .btn-primary,
-.delete-modal-actions .btn-delete {
-    width: auto;
-    min-width: 120px;
-}
-
-.btn-disabled {
-    pointer-events: none;
-}
-</style>
-
+{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('delete-modal');
@@ -133,47 +145,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelButtons = document.querySelectorAll('[data-delete-cancel]');
     let activeDeleteForm = null;
 
+    const openModal = (form) => {
+        activeDeleteForm = form;
+        if (message) {
+            const title = form.dataset.listingTitle || 'este anúncio';
+            message.textContent = `Tem certeza que deseja excluir "${title}"? Essa ação não pode ser desfeita.`;
+        }
+        modal.classList.add('open');
+        modal.setAttribute('aria-hidden', 'false');
+        confirmButton.focus();
+    };
+
     const closeModal = () => {
-        if (!modal) return;
         modal.classList.remove('open');
         modal.setAttribute('aria-hidden', 'true');
         activeDeleteForm = null;
     };
 
     document.querySelectorAll('.delete-listing-form').forEach(form => {
-        form.addEventListener('submit', event => {
-            event.preventDefault();
-            activeDeleteForm = form;
-            if (message) {
-                const title = form.dataset.listingTitle || 'este anúncio';
-                message.textContent = `Tem certeza que deseja excluir "${title}"? Essa ação não pode ser desfeita.`;
-            }
-            if (modal) {
-                modal.classList.add('open');
-                modal.setAttribute('aria-hidden', 'false');
-            }
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            openModal(form);
         });
     });
 
     confirmButton?.addEventListener('click', () => {
-        if (activeDeleteForm) {
-            activeDeleteForm.submit();
-        }
+        if (activeDeleteForm) activeDeleteForm.submit();
     });
 
-    cancelButtons.forEach(button => button.addEventListener('click', closeModal));
-
-    modal?.addEventListener('click', event => {
-        if (event.target === modal) {
-            closeModal();
-        }
-    });
-
-    document.addEventListener('keydown', event => {
-        if (event.key === 'Escape') {
-            closeModal();
-        }
-    });
+    cancelButtons.forEach(btn => btn.addEventListener('click', closeModal));
+    modal?.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 });
 </script>
 {% endblock %}

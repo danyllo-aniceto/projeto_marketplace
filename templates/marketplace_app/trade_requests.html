@@ -1,98 +1,136 @@
 {% extends 'base.html' %}
 
-{% block title %}Trocas{% endblock %}
+{% block title %}Trocas — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2 class="section-title"><span class="material-icons">handshake</span> Trocas</h2>
-
-    {% if messages %}
-        <div class="alert-container" style="margin-bottom: 1rem;">
-            {% for message in messages %}
-                <div class="alert-message {{ message.tags }}" style="margin-bottom: 0.75rem;">{{ message }}</div>
-            {% endfor %}
-        </div>
-    {% endif %}
-
-    <div class="cart-tabs" style="margin-bottom: 1.5rem;">
-        <button class="cart-tab active" data-target="sent-panel">Enviadas ({{ sent_count }})</button>
-        <button class="cart-tab" data-target="received-panel">Recebidas ({{ received_count }})</button>
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">handshake</span> Trocas</h2>
     </div>
 
+    <div class="tab-nav">
+        <button class="tab-btn active" data-target="sent-panel">
+            <span class="material-icons">send</span>
+            Enviadas ({{ sent_count }})
+        </button>
+        <button class="tab-btn" data-target="received-panel">
+            <span class="material-icons">inbox</span>
+            Recebidas ({{ received_count }})
+        </button>
+    </div>
+
+    <!-- TROCAS ENVIADAS -->
     <div id="sent-panel" class="cart-panel">
         {% if sent_page.object_list %}
             <div class="products-grid">
                 {% for trade_request in sent_page %}
-                    <div class="product-card">
-                        <div class="product-info">
-                            <h3 class="product-title">{{ trade_request.listing.title }}</h3>
-                            <p class="product-description">{{ trade_request.initial_message|default:'Sem mensagem inicial.'|truncatechars:120 }}</p>
-                            <div class="product-details">
-                                <span><span class="material-icons">person</span> Você</span>
-                                <span><span class="material-icons">store</span> {{ trade_request.counterparty.username }}</span>
-                            </div>
-                            <div class="product-price">{{ trade_request.get_status_display }}</div>
-                            <div class="product-actions">
-                                <a href="{% url 'trade_request_detail' trade_request.id %}" class="btn-details">Abrir negociação</a>
-                            </div>
+                    <div class="trade-card">
+                        <div class="trade-card-header">
+                            <h3 class="trade-card-title">{{ trade_request.listing.title }}</h3>
+                            {% with status=trade_request.status %}
+                            {% if status == 'approved' or status == 'completed' %}
+                                <span class="badge badge-approved">{{ trade_request.get_status_display }}</span>
+                            {% elif status == 'rejected' or status == 'cancelled' %}
+                                <span class="badge badge-rejected">{{ trade_request.get_status_display }}</span>
+                            {% elif status == 'negotiating' %}
+                                <span class="badge badge-negotiating">{{ trade_request.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge badge-pending">{{ trade_request.get_status_display }}</span>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                        <p class="trade-card-description">{{ trade_request.initial_message|default:'Sem mensagem inicial.'|truncatechars:120 }}</p>
+                        <div class="trade-card-meta">
+                            <span><span class="material-icons">person</span> Você</span>
+                            <span><span class="material-icons">store</span> {{ trade_request.counterparty.username }}</span>
+                        </div>
+                        <div class="trade-card-actions">
+                            <a href="{% url 'trade_request_detail' trade_request.id %}" class="btn-details">
+                                <span class="material-icons">handshake</span> Abrir negociação
+                            </a>
                         </div>
                     </div>
                 {% endfor %}
             </div>
+
             {% if sent_page.paginator.num_pages > 1 %}
-                <div style="display:flex; gap: 0.75rem; justify-content:center; margin-top: 1.5rem; flex-wrap: wrap;">
+                <div class="pagination">
                     {% if sent_page.has_previous %}
-                        <a href="?sent_page={{ sent_page.previous_page_number }}&received_page={{ received_page.number }}&tab=sent" class="btn-details">Anterior</a>
+                        <a href="?sent_page={{ sent_page.previous_page_number }}&received_page={{ received_page.number }}&tab=sent" class="btn-details">
+                            <span class="material-icons">chevron_left</span> Anterior
+                        </a>
                     {% endif %}
-                    <span style="align-self:center;">Página {{ sent_page.number }} de {{ sent_page.paginator.num_pages }}</span>
+                    <span class="pagination-info">Página {{ sent_page.number }} de {{ sent_page.paginator.num_pages }}</span>
                     {% if sent_page.has_next %}
-                        <a href="?sent_page={{ sent_page.next_page_number }}&received_page={{ received_page.number }}&tab=sent" class="btn-details">Próxima</a>
+                        <a href="?sent_page={{ sent_page.next_page_number }}&received_page={{ received_page.number }}&tab=sent" class="btn-details">
+                            Próxima <span class="material-icons">chevron_right</span>
+                        </a>
                     {% endif %}
                 </div>
             {% endif %}
         {% else %}
             <div class="empty-state">
-                <p><span class="material-icons" style="font-size: 3rem; color: #999;">send</span></p>
-                <p>Você ainda não enviou propostas de troca.</p>
+                <span class="material-icons empty-icon">send</span>
+                <h3>Nenhuma troca enviada</h3>
+                <p>Adicione um produto de troca ao carrinho para iniciar uma negociação.</p>
             </div>
         {% endif %}
     </div>
 
+    <!-- TROCAS RECEBIDAS -->
     <div id="received-panel" class="cart-panel" style="display:none;">
         {% if received_page.object_list %}
             <div class="products-grid">
                 {% for trade_request in received_page %}
-                    <div class="product-card">
-                        <div class="product-info">
-                            <h3 class="product-title">{{ trade_request.listing.title }}</h3>
-                            <p class="product-description">{{ trade_request.initial_message|default:'Sem mensagem inicial.'|truncatechars:120 }}</p>
-                            <div class="product-details">
-                                <span><span class="material-icons">person</span> {{ trade_request.requester.username }}</span>
-                                <span><span class="material-icons">store</span> Você</span>
-                            </div>
-                            <div class="product-price">{{ trade_request.get_status_display }}</div>
-                            <div class="product-actions">
-                                <a href="{% url 'trade_request_detail' trade_request.id %}" class="btn-details">Analisar solicitação</a>
-                            </div>
+                    <div class="trade-card">
+                        <div class="trade-card-header">
+                            <h3 class="trade-card-title">{{ trade_request.listing.title }}</h3>
+                            {% with status=trade_request.status %}
+                            {% if status == 'approved' or status == 'completed' %}
+                                <span class="badge badge-approved">{{ trade_request.get_status_display }}</span>
+                            {% elif status == 'rejected' or status == 'cancelled' %}
+                                <span class="badge badge-rejected">{{ trade_request.get_status_display }}</span>
+                            {% elif status == 'negotiating' %}
+                                <span class="badge badge-negotiating">{{ trade_request.get_status_display }}</span>
+                            {% else %}
+                                <span class="badge badge-pending">{{ trade_request.get_status_display }}</span>
+                            {% endif %}
+                            {% endwith %}
+                        </div>
+                        <p class="trade-card-description">{{ trade_request.initial_message|default:'Sem mensagem inicial.'|truncatechars:120 }}</p>
+                        <div class="trade-card-meta">
+                            <span><span class="material-icons">person</span> {{ trade_request.requester.username }}</span>
+                            <span><span class="material-icons">store</span> Você</span>
+                        </div>
+                        <div class="trade-card-actions">
+                            <a href="{% url 'trade_request_detail' trade_request.id %}" class="btn-details">
+                                <span class="material-icons">handshake</span> Analisar
+                            </a>
                         </div>
                     </div>
                 {% endfor %}
             </div>
+
             {% if received_page.paginator.num_pages > 1 %}
-                <div style="display:flex; gap: 0.75rem; justify-content:center; margin-top: 1.5rem; flex-wrap: wrap;">
+                <div class="pagination">
                     {% if received_page.has_previous %}
-                        <a href="?sent_page={{ sent_page.number }}&received_page={{ received_page.previous_page_number }}&tab=received" class="btn-details">Anterior</a>
+                        <a href="?sent_page={{ sent_page.number }}&received_page={{ received_page.previous_page_number }}&tab=received" class="btn-details">
+                            <span class="material-icons">chevron_left</span> Anterior
+                        </a>
                     {% endif %}
-                    <span style="align-self:center;">Página {{ received_page.number }} de {{ received_page.paginator.num_pages }}</span>
+                    <span class="pagination-info">Página {{ received_page.number }} de {{ received_page.paginator.num_pages }}</span>
                     {% if received_page.has_next %}
-                        <a href="?sent_page={{ sent_page.number }}&received_page={{ received_page.next_page_number }}&tab=received" class="btn-details">Próxima</a>
+                        <a href="?sent_page={{ sent_page.number }}&received_page={{ received_page.next_page_number }}&tab=received" class="btn-details">
+                            Próxima <span class="material-icons">chevron_right</span>
+                        </a>
                     {% endif %}
                 </div>
             {% endif %}
         {% else %}
             <div class="empty-state">
-                <p><span class="material-icons" style="font-size: 3rem; color: #999;">inbox</span></p>
-                <p>Você ainda não recebeu propostas de troca.</p>
+                <span class="material-icons empty-icon">inbox</span>
+                <h3>Nenhuma troca recebida</h3>
+                <p>Quando alguém solicitar troca de um seus anúncios, aparecerá aqui.</p>
             </div>
         {% endif %}
     </div>
@@ -102,7 +140,7 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const tabs = document.querySelectorAll('.cart-tab');
+    const tabs = document.querySelectorAll('.tab-btn');
     const panels = document.querySelectorAll('.cart-panel');
 
     tabs.forEach(tab => {
@@ -117,8 +155,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const initialTab = new URLSearchParams(window.location.search).get('tab');
     if (initialTab === 'received') {
-        const receivedTab = document.querySelector('[data-target="received-panel"]');
-        if (receivedTab) receivedTab.click();
+        document.querySelector('[data-target="received-panel"]')?.click();
     }
 });
 </script>

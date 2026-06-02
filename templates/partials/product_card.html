@@ -1,0 +1,80 @@
+<div class="home-product-card">
+    <div class="product-image">
+        {% if anuncio.images.all %}
+            <img src="{{ anuncio.images.first.image.url }}" alt="{{ anuncio.title }}">
+        {% else %}
+            <div class="product-image-placeholder"><span class="material-icons">devices</span></div>
+        {% endif %}
+    </div>
+
+    <div class="home-product-info">
+
+        <span class="listing-type-badge type-{{ anuncio.listing_type }}">
+            {% if anuncio.listing_type == 'sale' %}Venda
+            {% elif anuncio.listing_type == 'trade' %}Troca
+            {% else %}Venda e Troca
+            {% endif %}
+        </span>
+
+        <h3 class="home-product-title">{{ anuncio.title }}</h3>
+
+        <div class="home-product-price-block">
+            {% if anuncio.listing_type == 'trade' or anuncio.price is None %}
+                <span class="home-product-price-trade">
+                    <span class="material-icons">compare_arrows</span> Negociável
+                </span>
+            {% else %}
+                <span class="home-product-price-value">R$ {{ anuncio.price|floatformat:2 }}</span>
+                {% if anuncio.listing_type == 'both' %}
+                    <span class="listing-type-badge type-trade" style="margin-left: 0.4rem; vertical-align: middle;">aceita troca</span>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="home-product-details">
+            <span class="home-product-chip">
+                <span class="material-icons">inventory_2</span>
+                {{ anuncio.get_condition_display }}
+            </span>
+            <span class="home-product-chip">
+                <span class="material-icons">label</span>
+                {{ anuncio.category.name }}
+            </span>
+        </div>
+
+        <div class="home-product-spacer"></div>
+
+        <div class="home-product-actions">
+            {% if user.is_authenticated %}
+                {% if anuncio.seller_id == user.id %}
+                    <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details">Ver Detalhes</a>
+                    <span class="btn-buy btn-disabled">Seu anúncio</span>
+                {% elif anuncio.id in cart_listing_ids %}
+                    <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details">Ver Detalhes</a>
+                    <a href="{% url 'cart' %}" class="btn-buy">No carrinho</a>
+                {% else %}
+                    <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details">Ver Detalhes</a>
+                    <a href="{% url 'add_to_cart' anuncio.id %}?action={% if anuncio.listing_type == 'trade' %}trade{% else %}buy{% endif %}&next={{ request.get_full_path|urlencode }}"
+                       class="btn-buy add-to-cart-link" data-remember-scroll="true">
+                        {% if anuncio.listing_type == 'trade' %}Solicitar Troca
+                        {% else %}Adicionar
+                        {% endif %}
+                    </a>
+                {% endif %}
+            {% else %}
+                <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details">Ver Detalhes</a>
+                <a href="{% url 'login' %}?next={% url 'listing_detail' anuncio.id %}" class="btn-buy">Entrar</a>
+            {% endif %}
+        </div>
+
+        <p class="home-product-seller">
+            <span class="material-icons">person</span>
+            <a href="{% url 'user_profile' anuncio.seller.username %}" class="seller-link">{{ anuncio.seller.username }}</a>
+            <span class="product-seller-icons">
+                {% if anuncio.is_featured %}<span class="material-icons" style="color: #ffd700;" title="Patrocinado">star</span>{% endif %}
+                {% if anuncio.is_store_featured %}<span class="material-icons" style="color: var(--success-color);" title="Loja Verificada">verified</span>{% endif %}
+            </span>
+        </p>
+
+    </div>
+</div>

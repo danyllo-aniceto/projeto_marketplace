@@ -33,9 +33,17 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Listing)
 class ListingAdmin(admin.ModelAdmin):
-	list_display = ('title', 'seller', 'category', 'listing_type', 'condition', 'status', 'created_at')
-	list_filter = ('listing_type', 'condition', 'status', 'is_featured', 'is_store_featured')
+	list_display = (
+		'title', 'seller', 'category', 'listing_type',
+		'condition', 'status', 'is_featured', 'is_store_featured', 'created_at',
+	)
+	list_display_links = ('title',)
+	list_editable = ('status', 'is_featured', 'is_store_featured')
+	list_filter = ('listing_type', 'condition', 'status', 'is_featured', 'is_store_featured', 'category')
 	search_fields = ('title', 'description', 'seller__username', 'category__name')
+	ordering = ('-created_at',)
+	list_per_page = 25
+	date_hierarchy = 'created_at'
 
 
 @admin.register(ListingImage)
@@ -46,6 +54,8 @@ class ListingImageAdmin(admin.ModelAdmin):
 @admin.register(StoreProfile)
 class StoreProfileAdmin(admin.ModelAdmin):
 	list_display = ('user', 'razao_social', 'cnpj', 'verified')
+	list_display_links = ('user',)
+	list_editable = ('verified',)
 	list_filter = ('verified',)
 	search_fields = ('user__username', 'razao_social', 'cnpj')
 

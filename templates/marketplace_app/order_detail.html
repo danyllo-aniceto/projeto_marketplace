@@ -1,60 +1,148 @@
 {% extends 'base.html' %}
 
-{% block title %}Pedido #{{ order.id }}{% endblock %}
+{% block title %}Pedido #{{ order.id }} — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2 class="section-title"><span class="material-icons">receipt_long</span> Pedido #{{ order.id }}</h2>
+    <nav class="breadcrumb">
+        <a href="{% url 'home' %}">Início</a>
+        <span class="material-icons">chevron_right</span>
+        <a href="{% url 'orders' %}">Meus pedidos</a>
+        <span class="material-icons">chevron_right</span>
+        <span class="breadcrumb-current">Pedido #{{ order.id }}</span>
+    </nav>
 
-    {% if messages %}
-        <div class="alert-container" style="margin-bottom: 1rem;">
-            {% for message in messages %}
-                <div class="alert-message {{ message.tags }}" style="margin-bottom: 0.75rem;">{{ message }}</div>
-            {% endfor %}
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">receipt_long</span> Pedido #{{ order.id }}</h2>
+        <div class="page-header-actions">
+            {% if order.status == 'paid' or order.status == 'completed' or order.status == 'delivered' %}
+                <span class="badge badge-approved" style="font-size: 0.9rem; padding: 0.45rem 1rem;">{{ order.get_status_display }}</span>
+            {% elif order.status == 'cancelled' %}
+                <span class="badge badge-rejected" style="font-size: 0.9rem; padding: 0.45rem 1rem;">{{ order.get_status_display }}</span>
+            {% elif order.status == 'pending_payment' %}
+                <span class="badge badge-pending" style="font-size: 0.9rem; padding: 0.45rem 1rem;">{{ order.get_status_display }}</span>
+            {% else %}
+                <span class="badge badge-info" style="font-size: 0.9rem; padding: 0.45rem 1rem;">{{ order.get_status_display }}</span>
+            {% endif %}
         </div>
-    {% endif %}
+    </div>
 
     <div class="cart-grid">
         <div class="cart-items">
             <div class="summary-card">
-                <h3>Resumo</h3>
-                <p><strong>Status:</strong> {{ order.get_status_display }}</p>
-                <p><strong>Pagamento:</strong> {{ order.get_payment_method_display }}</p>
-                <p><strong>Entrega:</strong> {{ order.get_delivery_method_display }}</p>
-                <p><strong>Total:</strong> R$ {{ order.total_amount|floatformat:2 }}</p>
-                <p><strong>Observações:</strong> {{ order.notes|default:'-' }}</p>
-                {% if payment_transaction %}
-                    <p><strong>Status do pagamento:</strong> {{ payment_transaction.get_status_display }}</p>
-                    {% if payment_transaction.checkout_url %}
-                        <p><a href="{{ payment_transaction.checkout_url }}" class="btn-details">Abrir pagamento</a></p>
+                <h3><span class="material-icons">info</span> Resumo do pedido</h3>
+                <div style="display: flex; flex-direction: column; gap: 0;">
+                    <div class="info-row">
+                        <span class="material-icons">payments</span>
+                        <strong>Pagamento</strong>
+                        <span>{{ order.get_payment_method_display }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="material-icons">local_shipping</span>
+                        <strong>Entrega</strong>
+                        <span>{{ order.get_delivery_method_display }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="material-icons">attach_money</span>
+                        <strong>Total</strong>
+                        <span style="color: var(--accent-cyan); font-weight: 700; font-size: 1.1rem;">R$ {{ order.total_amount|floatformat:2 }}</span>
+                    </div>
+                    {% if order.notes %}
+                    <div class="info-row">
+                        <span class="material-icons">notes</span>
+                        <strong>Observações</strong>
+                        <span>{{ order.notes }}</span>
+                    </div>
                     {% endif %}
-                {% endif %}
+                    {% if payment_transaction %}
+                    <div class="info-row">
+                        <span class="material-icons">credit_card</span>
+                        <strong>Status pgto.</strong>
+                        <span>{{ payment_transaction.get_status_display }}</span>
+                    </div>
+                    {% if payment_transaction.checkout_url %}
+                    <div class="info-row" style="border: 0; padding-top: 0.75rem;">
+                        <a href="{{ payment_transaction.checkout_url }}" class="btn-details">
+                            <span class="material-icons">open_in_new</span> Abrir pagamento
+                        </a>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
             </div>
 
-            <div class="summary-card" style="margin-top: 1.5rem;">
-                <h3>Itens do pedido</h3>
+            <div class="summary-card" style="margin-top: 1.25rem;">
+                <h3><span class="material-icons">shopping_bag</span> Itens do pedido</h3>
                 {% for item in order.items.all %}
-                    <p>{{ item.title_snapshot }} - {{ item.seller.username }} - R$ {{ item.unit_price_snapshot|floatformat:2 }}</p>
+                    <div class="checkout-item-row">
+                        <span class="checkout-item-name">{{ item.title_snapshot }}</span>
+                        <span style="color: var(--text-muted); font-size: 0.85rem; white-space: nowrap;">{{ item.seller.username }}</span>
+                        <strong style="color: var(--accent-cyan); white-space: nowrap;">R$ {{ item.unit_price_snapshot|floatformat:2 }}</strong>
+                    </div>
                 {% empty %}
-                    <p>Nenhum item no pedido.</p>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">Nenhum item encontrado.</p>
                 {% endfor %}
             </div>
 
             {% if delivery %}
-            <div class="summary-card" style="margin-top: 1.5rem;">
-                <h3>Entrega</h3>
-                <p><strong>Status:</strong> {{ delivery.get_status_display }}</p>
-                <p><strong>Método:</strong> {{ delivery.get_method_display }}</p>
-                <p><strong>Destinatário:</strong> {{ delivery.recipient_name }}</p>
-                <p><strong>Endereço:</strong> {{ delivery.street }}, {{ delivery.number }}{% if delivery.complement %} - {{ delivery.complement }}{% endif %}, {{ delivery.neighborhood }}, {{ delivery.city }} - {{ delivery.state }}</p>
-                <p><strong>CEP:</strong> {{ delivery.postal_code }}</p>
-                <p><strong>Frete:</strong> R$ {{ delivery.shipping_cost|floatformat:2 }}</p>
-                {% if delivery.carrier_name %}<p><strong>Transportadora:</strong> {{ delivery.carrier_name }}</p>{% endif %}
-                {% if delivery.tracking_code %}<p><strong>Rastreio:</strong> {{ delivery.tracking_code }}</p>{% endif %}
-                {% if delivery.estimated_delivery_date %}<p><strong>Previsão:</strong> {{ delivery.estimated_delivery_date|date:'d/m/Y' }}</p>{% endif %}
-                {% if delivery.notes %}<p><strong>Notas:</strong> {{ delivery.notes }}</p>{% endif %}
+            <div class="summary-card" style="margin-top: 1.25rem;">
+                <h3><span class="material-icons">local_shipping</span> Informações de entrega</h3>
+                <div style="display: flex; flex-direction: column; gap: 0;">
+                    <div class="info-row">
+                        <span class="material-icons">person</span>
+                        <strong>Destinatário</strong>
+                        <span>{{ delivery.recipient_name }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="material-icons">location_on</span>
+                        <strong>Endereço</strong>
+                        <span>{{ delivery.street }}, {{ delivery.number }}{% if delivery.complement %} — {{ delivery.complement }}{% endif %}, {{ delivery.neighborhood }}, {{ delivery.city }} — {{ delivery.state }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="material-icons">markunread_mailbox</span>
+                        <strong>CEP</strong>
+                        <span>{{ delivery.postal_code }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="material-icons">local_atm</span>
+                        <strong>Frete</strong>
+                        <span>R$ {{ delivery.shipping_cost|floatformat:2 }}</span>
+                    </div>
+                    {% if delivery.carrier_name %}
+                    <div class="info-row">
+                        <span class="material-icons">airport_shuttle</span>
+                        <strong>Transportadora</strong>
+                        <span>{{ delivery.carrier_name }}</span>
+                    </div>
+                    {% endif %}
+                    {% if delivery.tracking_code %}
+                    <div class="info-row">
+                        <span class="material-icons">track_changes</span>
+                        <strong>Rastreio</strong>
+                        <span>{{ delivery.tracking_code }}</span>
+                    </div>
+                    {% endif %}
+                    {% if delivery.estimated_delivery_date %}
+                    <div class="info-row">
+                        <span class="material-icons">event</span>
+                        <strong>Previsão</strong>
+                        <span>{{ delivery.estimated_delivery_date|date:'d/m/Y' }}</span>
+                    </div>
+                    {% endif %}
+                    {% if delivery.notes %}
+                    <div class="info-row">
+                        <span class="material-icons">notes</span>
+                        <strong>Notas</strong>
+                        <span>{{ delivery.notes }}</span>
+                    </div>
+                    {% endif %}
+                </div>
                 {% if user.is_staff %}
-                    <p style="margin-top: 1rem;"><a href="{% url 'delivery_update' order.id %}" class="btn-secondary">Atualizar entrega</a></p>
+                    <div style="margin-top: 0.75rem;">
+                        <a href="{% url 'delivery_update' order.id %}" class="btn-secondary">
+                            <span class="material-icons">edit</span> Atualizar entrega
+                        </a>
+                    </div>
                 {% endif %}
             </div>
             {% endif %}
@@ -62,10 +150,21 @@
 
         <div class="cart-summary">
             <div class="summary-card">
-                <h3>Próximos passos</h3>
-                <p>Este pedido já foi registrado. A integração de pagamento externa pode ser conectada depois sem mudar a estrutura principal.</p>
-                <a href="{% url 'checkout' %}" class="btn-details">Voltar ao checkout</a>
-                <a href="{% url 'trade_requests' %}" class="btn-secondary" style="margin-top: 0.75rem; display:inline-block;">Ver trocas</a>
+                <h3><span class="material-icons">info</span> Próximos passos</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin: 0;">
+                    Este pedido já foi registrado. Acompanhe o status acima.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem;">
+                    <a href="{% url 'orders' %}" class="btn-details">
+                        <span class="material-icons">arrow_back</span> Meus pedidos
+                    </a>
+                    <a href="{% url 'trade_requests' %}" class="btn-primary">
+                        <span class="material-icons">compare_arrows</span> Ver trocas
+                    </a>
+                    <a href="{% url 'home' %}" class="btn-primary" style="margin-top: 0.25rem;">
+                        <span class="material-icons">store</span> Continuar comprando
+                    </a>
+                </div>
             </div>
         </div>
     </div>

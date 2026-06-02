@@ -1,36 +1,134 @@
 {% extends 'base.html' %}
 
-{% block title %}Checkout da troca{% endblock %}
+{% block title %}Checkout da troca #{{ trade_request.id }} — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h2 class="section-title"><span class="material-icons">swap_horiz</span> Checkout da troca</h2>
 
-    {% if messages %}
-        <div class="alert-container" style="margin-bottom: 1rem;">
-            {% for message in messages %}
-                <div class="alert-message {{ message.tags }}" style="margin-bottom: 0.75rem;">{{ message }}</div>
-            {% endfor %}
+    <nav class="breadcrumb">
+        <a href="{% url 'home' %}">Início</a>
+        <span class="material-icons">chevron_right</span>
+        <a href="{% url 'trade_requests' %}">Trocas</a>
+        <span class="material-icons">chevron_right</span>
+        <a href="{% url 'trade_request_detail' trade_request.id %}">Negociação #{{ trade_request.id }}</a>
+        <span class="material-icons">chevron_right</span>
+        <span class="breadcrumb-current">Checkout da troca</span>
+    </nav>
+
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">swap_horiz</span> Checkout da troca</h2>
+        <div class="page-header-actions">
+            <span class="badge badge-approved" style="font-size: 0.88rem; padding: 0.4rem 1rem;">
+                <span class="material-icons" style="font-size: 14px;">check_circle</span>
+                {{ trade_request.get_status_display }}
+            </span>
         </div>
-    {% endif %}
+    </div>
 
-    <div class="cart-grid">
-        <div class="cart-items">
+    <div class="trade-checkout-grid">
+
+        <!-- ======== COLUNA ESQUERDA: RESUMO + STATUS ======== -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+
+            <!-- Resumo da troca -->
             <div class="summary-card">
-                <h3>Resumo da troca</h3>
-                <p><strong>Anúncio:</strong> {{ trade_request.listing.title }}</p>
-                <p><strong>Solicitante:</strong> {{ trade_request.requester.username }}</p>
-                <p><strong>Contraparte:</strong> {{ trade_request.counterparty.username }}</p>
-                <p><strong>Valor em dinheiro:</strong> R$ {{ fulfillment.payment_amount|floatformat:2 }}</p>
-                <p><strong>Status:</strong> {{ trade_request.get_status_display }}</p>
-                {% if fulfillment.agreed_proposal %}
-                    <p><strong>Proposta aceita:</strong> {{ fulfillment.agreed_proposal.item_description|default:'-' }}</p>
-                {% endif %}
+                <h3><span class="material-icons">handshake</span> Resumo da troca</h3>
+                <div style="display: flex; flex-direction: column; gap: 0;">
+                    <div class="info-row">
+                        <span class="material-icons">sell</span>
+                        <strong>Anúncio</strong>
+                        <span>{{ trade_request.listing.title }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="material-icons">person</span>
+                        <strong>Solicitante</strong>
+                        <span>{{ trade_request.requester.username }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="material-icons">store</span>
+                        <strong>Contraparte</strong>
+                        <span>{{ trade_request.counterparty.username }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="material-icons">attach_money</span>
+                        <strong>Valor acordado</strong>
+                        <span style="color: var(--accent-cyan); font-weight: 700; font-size: 1.05rem;">
+                            R$ {{ fulfillment.payment_amount|floatformat:2 }}
+                        </span>
+                    </div>
+                    {% if fulfillment.agreed_proposal %}
+                    <div class="info-row">
+                        <span class="material-icons">compare_arrows</span>
+                        <strong>Proposta aceita</strong>
+                        <span style="color: var(--text-muted);">{{ fulfillment.agreed_proposal.item_description|default:'—' }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="info-row">
+                        <span class="material-icons">payments</span>
+                        <strong>Forma de pgto.</strong>
+                        <span>{{ fulfillment.get_payment_method_display|default:'—' }}</span>
+                    </div>
+                </div>
             </div>
 
-            <div class="summary-card" style="margin-top: 1.5rem;">
-                <h3>Entrega</h3>
-                <p style="margin-bottom: 1rem; color: var(--text-muted);">Cada participante confirma a própria parte. A troca só é finalizada quando os dois confirmarem.</p>
+            <!-- Status das entregas: ambas as partes -->
+            <div class="summary-card">
+                <h3><span class="material-icons">local_shipping</span> Status das entregas</h3>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin: -0.25rem 0 0.85rem; line-height: 1.5;">
+                    A troca só é finalizada quando os dois participantes confirmam a entrega.
+                </p>
+
+                <div class="trade-delivery-grid" style="margin-bottom: 0;">
+                    <div class="delivery-party-card {% if user_delivery_confirmed %}is-confirmed{% endif %}">
+                        <p class="delivery-party-name">
+                            <span class="material-icons" style="font-size: 17px; color: var(--accent-cyan);">person</span>
+                            Você
+                            {% if user_delivery_confirmed %}
+                                <span class="badge badge-approved" style="font-size: 0.7rem;">Confirmado</span>
+                            {% else %}
+                                <span class="badge badge-pending" style="font-size: 0.7rem;">Pendente</span>
+                            {% endif %}
+                        </p>
+                        {% if user_delivery %}
+                            <p class="delivery-party-detail"><strong>Endereço:</strong> {{ user_delivery.street }}, {{ user_delivery.number }} — {{ user_delivery.city }}/{{ user_delivery.state }}</p>
+                            <p class="delivery-party-detail"><strong>Status:</strong> {{ user_delivery.get_status_display }}</p>
+                        {% else %}
+                            <p class="delivery-party-detail" style="color: var(--text-muted);">Não informado ainda.</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="delivery-party-card {% if other_delivery_confirmed %}is-confirmed{% endif %}">
+                        <p class="delivery-party-name">
+                            <span class="material-icons" style="font-size: 17px; color: var(--text-muted);">person_outline</span>
+                            Outro participante
+                            {% if other_delivery_confirmed %}
+                                <span class="badge badge-approved" style="font-size: 0.7rem;">Confirmado</span>
+                            {% else %}
+                                <span class="badge badge-pending" style="font-size: 0.7rem;">Pendente</span>
+                            {% endif %}
+                        </p>
+                        {% if other_delivery %}
+                            <p class="delivery-party-detail"><strong>Endereço:</strong> {{ other_delivery.street }}, {{ other_delivery.number }} — {{ other_delivery.city }}/{{ other_delivery.state }}</p>
+                            <p class="delivery-party-detail"><strong>Status:</strong> {{ other_delivery.get_status_display }}</p>
+                        {% else %}
+                            <p class="delivery-party-detail" style="color: var(--text-muted);">Não informado ainda.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <a href="{% url 'trade_request_detail' trade_request.id %}" class="btn-details">
+                <span class="material-icons">arrow_back</span> Voltar para a negociação
+            </a>
+
+        </div>
+
+        <!-- ======== COLUNA DIREITA: FORM + CONFIRMAÇÃO ======== -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+
+            <!-- Form de entrega -->
+            <div class="delivery-form-card">
+                <h3><span class="material-icons">edit_location</span> Seus dados de envio</h3>
                 <form method="post">
                     {% csrf_token %}
                     <div class="form-group">
@@ -42,84 +140,102 @@
                         {{ form.delivery_method }}
                     </div>
                     <div class="form-row">
-                                            {% if user_delivery_confirmed %}
-                                                <p style="color: var(--accent-cyan);">Sua parte já foi confirmada.</p>
-                                            {% endif %}
-                        <div class="form-group">{{ form.recipient_name.label_tag }}{{ form.recipient_name }}</div>
-                        <div class="form-group">{{ form.recipient_phone.label_tag }}{{ form.recipient_phone }}</div>
+                        <div class="form-group">
+                            {{ form.recipient_name.label_tag }}
+                            {{ form.recipient_name }}
+                        </div>
+                        <div class="form-group">
+                            {{ form.recipient_phone.label_tag }}
+                            {{ form.recipient_phone }}
+                        </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group">{{ form.postal_code.label_tag }}{{ form.postal_code }}</div>
-                        <div class="form-group">{{ form.state.label_tag }}{{ form.state }}</div>
+                        <div class="form-group">
+                            {{ form.postal_code.label_tag }}
+                            {{ form.postal_code }}
+                        </div>
+                        <div class="form-group">
+                            {{ form.state.label_tag }}
+                            {{ form.state }}
+                        </div>
                     </div>
-                    <div class="form-group">{{ form.street.label_tag }}{{ form.street }}</div>
+                    <div class="form-group">
+                        {{ form.street.label_tag }}
+                        {{ form.street }}
+                    </div>
                     <div class="form-row">
-                                            {% if other_delivery_confirmed %}
-                                                <p style="color: var(--accent-cyan);">O outro participante já confirmou a parte dele.</p>
-                                            {% endif %}
-                        <div class="form-group">{{ form.number.label_tag }}{{ form.number }}</div>
-                        <div class="form-group">{{ form.complement.label_tag }}{{ form.complement }}</div>
+                        <div class="form-group">
+                            {{ form.number.label_tag }}
+                            {{ form.number }}
+                        </div>
+                        <div class="form-group">
+                            {{ form.complement.label_tag }}
+                            {{ form.complement }}
+                        </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group">{{ form.neighborhood.label_tag }}{{ form.neighborhood }}</div>
-                        <div class="form-group">{{ form.city.label_tag }}{{ form.city }}</div>
+                        <div class="form-group">
+                            {{ form.neighborhood.label_tag }}
+                            {{ form.neighborhood }}
+                        </div>
+                        <div class="form-group">
+                            {{ form.city.label_tag }}
+                            {{ form.city }}
+                        </div>
                     </div>
-                    <div class="form-group">{{ form.notes.label_tag }}{{ form.notes }}</div>
-
-                    <hr style="margin: 1rem 0; border-color: var(--border-color);">
-                    <h4>Suas informações de envio</h4>
-                    {% if user_delivery %}
-                        <p><strong>Forma:</strong> {{ user_delivery.get_delivery_method_display }}</p>
-                        <p><strong>Endereço:</strong> {{ user_delivery.street }} {{ user_delivery.number }}, {{ user_delivery.city }} - {{ user_delivery.state }}</p>
-                        <p><strong>Status:</strong> {{ user_delivery.get_status_display }}</p>
-                    {% else %}
-                        <p>Você ainda não informou os dados de envio.</p>
-                    {% endif %}
-
-                    <h4>Informações de envio do outro</h4>
-                    {% if other_delivery %}
-                        <p><strong>Forma:</strong> {{ other_delivery.get_delivery_method_display }}</p>
-                        <p><strong>Endereço:</strong> {{ other_delivery.street }} {{ other_delivery.number }}, {{ other_delivery.city }} - {{ other_delivery.state }}</p>
-                        <p><strong>Status:</strong> {{ other_delivery.get_status_display }}</p>
-                    {% else %}
-                        <p>O outro participante ainda não informou os dados de envio.</p>
-                    {% endif %}
+                    <div class="form-group">
+                        {{ form.notes.label_tag }}
+                        {{ form.notes }}
+                    </div>
 
                     {% if show_qr_simulation %}
-                        <div style="margin: 1rem 0; padding: 1rem; border: 1px solid var(--border-color); border-radius: 16px;">
-                            <div style="display:flex; align-items:center; justify-content:space-between; gap: 1rem; margin-bottom: 0.75rem;">
+                        <div class="qr-section">
+                            <div class="qr-section-header">
                                 <div>
-                                    <p style="margin: 0; font-weight: 700;">QR code de simulação</p>
-                                    <p style="margin: 0; color: var(--text-muted);">Escaneamento ilustrativo para o valor adicional da troca.</p>
+                                    <p>QR Code de simulação</p>
+                                    <p>Valor adicional da troca — apenas ilustrativo.</p>
                                 </div>
-                                <span class="material-icons" style="font-size: 2rem; color: var(--primary-color);">qr_code_2</span>
+                                <span class="material-icons">qr_code_2</span>
                             </div>
-                            <div style="display:flex; justify-content:center;">
-                                <div style="display:grid; grid-template-columns: repeat(21, 1fr); grid-template-rows: repeat(15, 1fr); gap: 2px; padding: 12px; background: #fff; border: 1px solid var(--border-color); border-radius: 12px; width: 100%; max-width: 320px; aspect-ratio: 1 / 1;">
+                            <div class="qr-code-wrapper">
+                                <div style="display:grid; grid-template-columns: repeat(21, 1fr); grid-template-rows: repeat(15, 1fr); gap: 2px; padding: 12px; background: #fff; border-radius: 10px; width: 100%; max-width: 260px; aspect-ratio: 1;">
                                     {% for row in qr_pattern %}
                                         {% for cell in row %}
-                                            <div style="background: {% if cell == '1' %}#111827{% else %}#ffffff{% endif %}; border-radius: 2px;"></div>
+                                            <div style="background: {% if cell == '1' %}#111827{% else %}#ffffff{% endif %}; border-radius: 1px;"></div>
                                         {% endfor %}
                                     {% endfor %}
                                 </div>
                             </div>
-                            <p style="margin: 0.75rem 0 0; color: var(--text-muted);">Referência da simulação: <strong>{{ qr_token }}</strong></p>
+                            <p class="qr-ref">Referência: <strong>{{ qr_token }}</strong></p>
                         </div>
-
-                        <p style="margin-top:0.5rem;color:var(--text-muted);">Ao confirmar, você registra sua parte e, se for o caso, confirma o pagamento adicional.</p>
-                        {% if user_delivery_confirmed and not can_finalize_trade %}
-                            <button type="submit" class="btn-secondary" style="width: 100%;" disabled>Você já confirmou sua parte</button>
-                        {% else %}
-                            <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">Confirmar minha parte da troca</button>
-                        {% endif %}
-                    {% elif ready_to_confirm %}
-                        <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">Confirmar minha parte da troca</button>
-                    {% else %}
-                        <button type="submit" class="btn-secondary" style="width: 100%;">Gerar QR de simulação</button>
                     {% endif %}
+
+                    <div style="margin-top: 0.75rem;">
+                        {% if show_qr_simulation %}
+                            {% if user_delivery_confirmed and not can_finalize_trade %}
+                                <button type="submit" class="btn-secondary" style="width: 100%;" disabled>
+                                    <span class="material-icons">check_circle</span> Você já confirmou sua parte
+                                </button>
+                            {% else %}
+                                <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">
+                                    <span class="material-icons">check_circle</span> Confirmar minha parte
+                                </button>
+                            {% endif %}
+                        {% elif ready_to_confirm %}
+                            <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">
+                                <span class="material-icons">check_circle</span> Confirmar minha parte
+                            </button>
+                        {% else %}
+                            <button type="submit" class="btn-secondary" style="width: 100%;">
+                                <span class="material-icons">qr_code_2</span> Gerar QR de simulação
+                            </button>
+                        {% endif %}
+                    </div>
                 </form>
             </div>
+
         </div>
     </div>
+
 </div>
 {% endblock %}

@@ -51,7 +51,7 @@ def _get_pending_checkout(request):
 @login_required
 def checkout_view(request):
     cart, _ = Cart.objects.get_or_create(user=request.user)
-    items = cart.items.select_related('listing', 'listing__seller').all()
+    items = cart.items.select_related('listing', 'listing__seller').prefetch_related('listing__images').all()
     buy_items = [item for item in items if item.desired_action == CartItem.BUY]
     trade_items = [item for item in items if item.desired_action == CartItem.TRADE]
     checkout_mode = request.GET.get('action')
