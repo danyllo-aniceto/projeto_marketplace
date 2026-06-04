@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tech Hub — Swagger / OpenAPI</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui.css">
+    <style>
+        body { margin: 0; background: #fafafa; }
+        .topbar { display: none; }
+        #banner {
+            background: linear-gradient(135deg, #081d3d, #041123);
+            color: #eef7ff;
+            padding: 18px 28px;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            border-bottom: 2px solid #3af6ff;
+        }
+        #banner h1 { margin: 0; font-size: 1.3rem; }
+        #banner h1 span { color: #3af6ff; }
+        #banner p { margin: 4px 0 0; color: #9bb1ca; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <div id="banner">
+        <h1><span>Tech Hub</span> — Documentação de Endpoints (OpenAPI 3.0)</h1>
+        <p>Marketplace de Tecnologia · Django · gerado de openapi.yaml</p>
+    </div>
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.17.14/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.onload = () => {
+            window.ui = SwaggerUIBundle({
+                url: 'openapi.yaml',
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                docExpansion: 'list',
+                defaultModelsExpandDepth: 1,
+                tryItOutEnabled: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                layout: 'StandaloneLayout'
+            });
+        };
+    </script>
+</body>
+</html>

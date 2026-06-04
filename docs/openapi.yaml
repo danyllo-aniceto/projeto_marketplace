@@ -1,0 +1,1104 @@
+openapi: 3.0.3
+info:
+  title: Tech Hub — API & Endpoints
+  version: 1.0.0
+  description: |
+    Documentação de **todos os endpoints** do marketplace Tech Hub (Django 5.2).
+
+    O sistema mistura dois tipos de endpoint:
+
+    - **Páginas / formulários (server-side, Django Templates)** — consomem
+      `application/x-www-form-urlencoded` ou `multipart/form-data`, respondem
+      `text/html`. Autenticação por **sessão** (cookie `sessionid`) e exigem
+      **CSRF** (`csrfmiddlewaretoken` no corpo + cookie `csrftoken`) nos POSTs.
+      O padrão de sucesso em POST é **302 Redirect** (PRG); erro de validação
+      re-renderiza a página com **200**.
+    - **API JSON (DRF / integrações)** — `api/listings`, `api/register`,
+      `webhooks/mercadopago` e `api/delivery/{id}/status` trocam JSON.
+
+    > Observação: `djangorestframework-simplejwt` está instalado, mas **não há
+    > rotas de obtenção de token** mapeadas em `urls.py`. As rotas DRF atuais usam
+    > `AllowAny`. O esquema `bearerAuth` abaixo fica documentado para uso futuro.
+
+servers:
+  - url: http://127.0.0.1:8000
+    description: Desenvolvimento local
+  - url: "{baseUrl}"
+    description: Produção
+    variables:
+      baseUrl:
+        default: https://seu-dominio.com
+
+tags:
+  - name: Autenticação
+    description: Login, logout e cadastro (PF/PJ)
+  - name: Anúncios
+    description: Vitrine, criação, edição e detalhe de anúncios
+  - name: Carrinho
+    description: Carrinho de compras/trocas
+  - name: Checkout & Pedidos
+    description: Finalização de compra, pedidos e entrega
+  - name: Perfil
+    description: Edição de perfil, senha e perfil público
+  - name: Trocas
+    description: Negociação de troca (propostas, contrapropostas, entrega)
+  - name: API JSON
+    description: Endpoints que retornam/aceitam JSON
+  - name: Webhooks & Integrações
+    description: Mercado Pago e atualização de entrega via API
+
+# ============================================================
+# SEGURANÇA
+# ============================================================
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+      description: Cookie de sessão do Django (definido após login).
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-CSRFToken
+      description: |
+        Token CSRF. Em formulários HTML normais vai no corpo como
+        `csrfmiddlewaretoken`; em chamadas AJAX use o header `X-CSRFToken`
+        com o valor do cookie `csrftoken`.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Reservado para uso futuro (SimpleJWT instalado, sem rota ativa).
+
+  # ----------------------------------------------------------
+  # PARÂMETROS REUTILIZÁVEIS
+  # ----------------------------------------------------------
+  parameters:
+    PkPath:
+      name: pk
+      in: path
+      required: true
+      description: ID do recurso.
+      schema: { type: integer, example: 7 }
+    OrderPkPath:
+      name: order_pk
+      in: path
+      required: true
+      description: ID do pedido (Order).
+      schema: { type: integer, example: 12 }
+    ProposalPkPath:
+      name: proposal_pk
+      in: path
+      required: true
+      description: ID da proposta de troca.
+      schema: { type: integer, example: 3 }
+    UsernamePath:
+      name: username
+      in: path
+      required: true
+      description: Nome de usuário (público).
+      schema: { type: string, example: davi }
+
+  # ----------------------------------------------------------
+  # RESPOSTAS REUTILIZÁVEIS
+  # ----------------------------------------------------------
+  responses:
+    HtmlPage:
+      description: Página HTML renderizada.
+      content:
+        text/html:
+          schema: { type: string }
+    HtmlFormReRender:
+      description: |
+        Formulário inválido — a página é re-renderizada (200) com os erros de
+        validação destacados nos campos.
+      content:
+        text/html:
+          schema: { type: string }
+    Redirect:
+      description: Redirecionamento (PRG) após ação bem-sucedida.
+      headers:
+        Location:
+          description: URL de destino.
+          schema: { type: string }
+    LoginRedirect:
+      description: |
+        Usuário não autenticado em rota protegida (`@login_required`) — redireciona
+        para `/login/?next=...`.
+      headers:
+        Location:
+          schema: { type: string, example: "/login/?next=/carrinho/" }
+    NotFound:
+      description: Recurso não encontrado (`get_object_or_404`).
+      content:
+        text/html:
+          schema: { type: string }
+    CsrfForbidden:
+      description: Falha de verificação CSRF (token ausente/ inválido).
+      content:
+        text/html:
+          schema: { type: string }
+    MethodNotAllowed:
+      description: Método HTTP não permitido para este endpoint.
+
+  # ----------------------------------------------------------
+  # SCHEMAS
+  # ----------------------------------------------------------
+  schemas:
+    Category:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: Placas de Vídeo }
+        slug: { type: string, example: placas-de-video }
+
+    ListingImage:
+      type: object
+      properties:
+        id: { type: integer, example: 10 }
+        image:
+          type: string
+          format: uri
+          example: /media/listings/rtx4070.jpg
+
+    Listing:
+      type: object
+      properties:
+        id: { type: integer, example: 42 }
+        seller: { type: integer, description: ID do vendedor, example: 5 }
+        seller_name: { type: string, readOnly: true, example: davi }
+        category: { $ref: '#/components/schemas/Category' }
+        title: { type: string, example: "Câmera Sony Alpha A6400" }
+        description: { type: string }
+        price:
+          type: string
+          nullable: true
+          description: Decimal como string; `null` em anúncios só de troca.
+          example: "2999.90"
+        listing_type:
+          type: string
+          enum: [sale, trade, both]
+          example: sale
+        condition:
+          type: string
+          enum: [new, used]
+          example: used
+        status:
+          type: string
+          enum: [active, paused, sold]
+          example: active
+        is_featured: { type: boolean, example: false }
+        is_store_featured: { type: boolean, example: false }
+        created_at: { type: string, format: date-time }
+        images:
+          type: array
+          items: { $ref: '#/components/schemas/ListingImage' }
+
+    RegisterRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username: { type: string, example: novo_user }
+        email: { type: string, format: email, example: user@email.com }
+        password: { type: string, format: password, writeOnly: true, example: "SenhaForte123" }
+        is_store: { type: boolean, default: false, description: "true = cadastro de loja (PJ)" }
+        # ---- Pessoa Física (is_store=false) ----
+        cpf: { type: string, example: "123.456.789-09" }
+        birth_date: { type: string, format: date, nullable: true, example: "1998-05-20" }
+        phone: { type: string, example: "(11) 98888-7777" }
+        cep: { type: string, example: "01001-000" }
+        address: { type: string, example: "Rua A, 100" }
+        # ---- Pessoa Jurídica (is_store=true) ----
+        cnpj: { type: string, example: "12.345.678/0001-90" }
+        razao_social: { type: string, example: "Tech Store LTDA" }
+        fantasy_name: { type: string, example: "Tech Store" }
+        state_registration: { type: string }
+        responsible_name: { type: string }
+        responsible_cpf: { type: string }
+        commercial_cep: { type: string }
+        commercial_address: { type: string }
+        store_phone: { type: string }
+        store_email: { type: string, format: email }
+
+    RegisterResponse:
+      type: object
+      properties:
+        message: { type: string, example: "Usuário criado com sucesso!" }
+
+    ValidationError:
+      type: object
+      additionalProperties:
+        type: array
+        items: { type: string }
+      example:
+        cpf: ["CPF inválido."]
+        username: ["Nome de usuário já está em uso."]
+
+    WebhookPayload:
+      type: object
+      description: |
+        Payload do Mercado Pago. O handler procura `status`, `preference_id`/`id`
+        e `external_reference` tanto no nível raiz quanto em `data`/`resource`.
+      properties:
+        action: { type: string, example: payment.updated }
+        data:
+          type: object
+          properties:
+            id: { type: string, example: "1234567890" }
+            status: { type: string, example: approved }
+            preference_id: { type: string, example: "pref_abc123" }
+            external_reference: { type: string, example: "order-12" }
+      example:
+        data: { status: approved, external_reference: "order-12" }
+
+    WebhookResult:
+      type: object
+      properties:
+        updated: { type: boolean, example: true }
+        status:
+          type: string
+          description: Novo status da transação (quando atualizado).
+          enum: [pending, processing, approved, rejected, cancelled, refunded]
+          example: approved
+        reason:
+          type: string
+          description: Motivo da não-atualização.
+          enum: [transaction_not_found]
+          example: transaction_not_found
+
+    DeliveryUpdateRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, preparing, in_transit, delivered, cancelled]
+          example: in_transit
+        tracking_code: { type: string, example: "BR123456789XYZ" }
+        carrier_name: { type: string, example: "Correios" }
+        estimated_delivery_date: { type: string, format: date, example: "2026-06-15" }
+
+    DeliveryUpdateResult:
+      type: object
+      properties:
+        updated: { type: boolean, example: true }
+        status: { type: string, example: in_transit }
+        reason:
+          type: string
+          enum: [delivery_not_found, invalid_status, invalid_date]
+          example: invalid_status
+
+# Por padrão, a maioria das rotas exige sessão. Endpoints públicos sobrescrevem
+# com `security: []`.
+security:
+  - sessionAuth: []
+
+# ============================================================
+# PATHS
+# ============================================================
+paths:
+
+  # ---------------------- AUTENTICAÇÃO ----------------------
+  /login/:
+    get:
+      tags: [Autenticação]
+      summary: Página de login
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+    post:
+      tags: [Autenticação]
+      summary: Autenticar usuário (cria sessão)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [username, password, csrfmiddlewaretoken]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+                remember: { type: string, description: "Se presente, sessão de 30 dias", example: "on" }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302':
+          description: Login OK — define cookie `sessionid` e redireciona para `home`.
+          headers:
+            Set-Cookie: { schema: { type: string, example: "sessionid=abc...; HttpOnly" } }
+            Location: { schema: { type: string, example: / } }
+        '200': { $ref: '#/components/responses/HtmlFormReRender' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+
+  /logout/:
+    get:
+      tags: [Autenticação]
+      summary: Encerrar sessão
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+
+  /register/:
+    get:
+      tags: [Autenticação]
+      summary: Página de cadastro (PF/PJ, multi-step)
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+    post:
+      tags: [Autenticação]
+      summary: Cadastrar usuário via formulário
+      security: []
+      description: |
+        `account_type` define o formulário usado (`individual` ou `store`).
+        Valida CPF/CNPJ (dígito verificador), unicidade, maioridade (18+) e CEP.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [account_type, csrfmiddlewaretoken]
+              properties:
+                account_type: { type: string, enum: [individual, store] }
+                # PF
+                first_name: { type: string }
+                last_name: { type: string }
+                cpf: { type: string }
+                birth_date: { type: string, format: date }
+                email: { type: string, format: email }
+                phone: { type: string }
+                username: { type: string }
+                password: { type: string, format: password }
+                confirm_password: { type: string, format: password }
+                cep: { type: string }
+                address: { type: string }
+                # PJ
+                cnpj: { type: string }
+                company_name: { type: string }
+                fantasy_name: { type: string }
+                state_registration: { type: string }
+                responsible_name: { type: string }
+                responsible_cpf: { type: string }
+                store_email: { type: string, format: email }
+                store_phone: { type: string }
+                store_username: { type: string }
+                store_password: { type: string, format: password }
+                confirm_store_password: { type: string, format: password }
+                store_cep: { type: string }
+                store_address: { type: string }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302':
+          description: Cadastro OK — redireciona para `/login/`.
+        '200': { $ref: '#/components/responses/HtmlFormReRender' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+
+  /api/register/:
+    post:
+      tags: [Autenticação, API JSON]
+      summary: Cadastrar usuário via API (JSON)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+            examples:
+              pessoa_fisica:
+                summary: Pessoa Física
+                value:
+                  username: maria
+                  email: maria@email.com
+                  password: "SenhaForte123"
+                  is_store: false
+                  cpf: "123.456.789-09"
+                  birth_date: "1995-03-10"
+                  phone: "(11) 99999-0000"
+              loja:
+                summary: Loja (PJ)
+                value:
+                  username: techstore
+                  email: contato@techstore.com
+                  password: "SenhaForte123"
+                  is_store: true
+                  cnpj: "12.345.678/0001-90"
+                  razao_social: "Tech Store LTDA"
+      responses:
+        '201':
+          description: Usuário criado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterResponse' }
+        '400':
+          description: Dados inválidos (validação do serializer/model).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationError' }
+
+  # ---------------------- ANÚNCIOS --------------------------
+  /:
+    get:
+      tags: [Anúncios]
+      summary: Home / vitrine com busca, filtros e carrosséis
+      security: []
+      parameters:
+        - { name: q, in: query, schema: { type: string }, description: Busca por título, descrição, categoria ou vendedor }
+        - { name: categoria, in: query, schema: { type: string }, description: Slug da categoria (ou "todos") }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: latest_page, in: query, schema: { type: integer } }
+        - { name: featured_page, in: query, schema: { type: integer } }
+        - { name: sale_page, in: query, schema: { type: integer } }
+        - { name: trade_page, in: query, schema: { type: integer } }
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+
+  /api/listings/:
+    get:
+      tags: [Anúncios, API JSON]
+      summary: Listar anúncios (JSON)
+      security: []
+      description: Retorna todos os anúncios ordenados por data (mais recentes primeiro).
+      responses:
+        '200':
+          description: Lista de anúncios.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Listing' }
+
+  /criar-anuncio/:
+    get:
+      tags: [Anúncios]
+      summary: Formulário de criação de anúncio
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+    post:
+      tags: [Anúncios]
+      summary: Criar anúncio (com upload de imagens)
+      description: |
+        Lojas (PJ) só podem criar `listing_type=sale` e `condition=new`.
+        Preço aceita máscara `R$ 1.234,56`. Troca exige `trade_suggestions`.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title, description, category, listing_type, condition, csrfmiddlewaretoken]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                trade_suggestions: { type: string }
+                price: { type: string, example: "R$ 2.999,90" }
+                category: { type: integer, description: ID da categoria }
+                listing_type: { type: string, enum: [sale, trade, both] }
+                condition: { type: string, enum: [new, used] }
+                images:
+                  type: array
+                  items: { type: string, format: binary }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302':
+          description: Criado — redireciona para `/meus-anuncios/`.
+        '200': { $ref: '#/components/responses/HtmlFormReRender' }
+        '403': { $ref: '#/components/responses/CsrfForbidden' }
+
+  /meus-anuncios/:
+    get:
+      tags: [Anúncios]
+      summary: Meus anúncios (com indicação de bloqueio por negociação)
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+
+  /anuncio/{pk}/:
+    get:
+      tags: [Anúncios]
+      summary: Detalhe do anúncio + comentários
+      security: []
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Anúncios]
+      summary: Comentar no anúncio (ou responder um comentário)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [content, csrfmiddlewaretoken]
+              properties:
+                content: { type: string }
+                parent_id: { type: integer, description: ID do comentário pai (para resposta) }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302':
+          description: Comentário criado — recarrega o detalhe. Não autenticado → `/login/`.
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /editar-anuncio/{pk}/:
+    get:
+      tags: [Anúncios]
+      summary: Formulário de edição (bloqueado se em negociação)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Anúncios]
+      summary: Atualizar anúncio
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                trade_suggestions: { type: string }
+                price: { type: string }
+                category: { type: integer }
+                listing_type: { type: string, enum: [sale, trade, both] }
+                condition: { type: string, enum: [new, used] }
+                images:
+                  type: array
+                  items: { type: string, format: binary }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302':
+          description: Atualizado (→ `/meus-anuncios/`) ou bloqueado por negociação (volta ao form).
+        '200': { $ref: '#/components/responses/HtmlFormReRender' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /excluir-anuncio/{pk}/:
+    post:
+      tags: [Anúncios]
+      summary: Excluir anúncio
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [csrfmiddlewaretoken]
+              properties:
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302':
+          description: Excluído (→ `/meus-anuncios/`). GET apenas redireciona ao form de edição.
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------- CARRINHO --------------------------
+  /carrinho/:
+    get:
+      tags: [Carrinho]
+      summary: Ver carrinho (itens de compra e de troca)
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+
+  /adicionar-carrinho/{pk}/:
+    get:
+      tags: [Carrinho]
+      summary: Adicionar anúncio ao carrinho
+      description: |
+        A ação é inferida pelo tipo do anúncio; `action` só vale para `both`.
+        Não permite adicionar o próprio anúncio; lojas não aceitam troca.
+      parameters:
+        - { $ref: '#/components/parameters/PkPath' }
+        - { name: action, in: query, schema: { type: string, enum: [buy, trade] } }
+        - { name: next, in: query, schema: { type: string }, description: URL de retorno }
+      responses:
+        '302':
+          description: Item adicionado (→ carrinho ou `next`). Erros viram mensagem flash.
+        '404':
+          description: Anúncio inexistente ou inativo.
+
+  /remover-carrinho/{pk}/:
+    get:
+      tags: [Carrinho]
+      summary: Remover item do carrinho
+      parameters: [ { $ref: '#/components/parameters/PkPath', description: ID do CartItem } ]
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+
+  /carrinho/item/{pk}/acao/:
+    post:
+      tags: [Carrinho]
+      summary: Alterar ação do item (compra ↔ troca)
+      parameters: [ { $ref: '#/components/parameters/PkPath', description: ID do CartItem } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [desired_action, csrfmiddlewaretoken]
+              properties:
+                desired_action: { type: string, enum: [buy, trade] }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ------------------ CHECKOUT & PEDIDOS --------------------
+  /checkout/:
+    get:
+      tags: [Checkout & Pedidos]
+      summary: Tela de checkout (compra e/ou troca)
+      parameters:
+        - { name: action, in: query, schema: { type: string, enum: [trade] }, description: "Força fluxo só de troca" }
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+    post:
+      tags: [Checkout & Pedidos]
+      summary: Validar dados / confirmar compra ou criar trocas
+      description: |
+        1ª submissão valida o formulário e mostra o QR simulado.
+        Reenvio com `confirm_purchase=1` cria o `Order` + `Delivery` +
+        `PaymentTransaction` e limpa o carrinho. No fluxo de troca, cria os
+        `TradeRequest` e redireciona para `/trocas/`.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [payment_method, delivery_method, csrfmiddlewaretoken]
+              properties:
+                payment_method: { type: string, enum: [pix, credit_card, debit_card, bank_transfer] }
+                delivery_method: { type: string, enum: [pickup, seller_shipping, platform_shipping, to_agree] }
+                recipient_name: { type: string }
+                recipient_phone: { type: string }
+                postal_code: { type: string }
+                street: { type: string }
+                number: { type: string }
+                complement: { type: string }
+                neighborhood: { type: string }
+                city: { type: string }
+                state: { type: string, maxLength: 2 }
+                notes: { type: string }
+                confirm_purchase: { type: string, enum: ["1"], description: "Confirma a compra pendente" }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '200':
+          description: Form validado (mostra QR) ou re-render com erros.
+        '302':
+          description: Compra confirmada (→ detalhe do pedido) ou trocas criadas (→ `/trocas/`).
+
+  /pedidos/:
+    get:
+      tags: [Checkout & Pedidos]
+      summary: Meus pedidos (como comprador)
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+
+  /pedidos/{pk}/:
+    get:
+      tags: [Checkout & Pedidos]
+      summary: Detalhe do pedido (pagamento + entrega)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /pedidos/{pk}/entrega/:
+    get:
+      tags: [Checkout & Pedidos]
+      summary: Form de atualização da entrega (somente staff)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { description: "Sem permissão (não-staff) → volta ao detalhe do pedido." }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Checkout & Pedidos]
+      summary: Atualizar entrega (somente staff)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [method, recipient_name, recipient_phone, postal_code, street, number, neighborhood, city, state, csrfmiddlewaretoken]
+              properties:
+                method: { type: string, enum: [pickup, seller_shipping, platform_shipping, to_agree] }
+                recipient_name: { type: string }
+                recipient_phone: { type: string }
+                postal_code: { type: string }
+                street: { type: string }
+                number: { type: string }
+                complement: { type: string }
+                neighborhood: { type: string }
+                city: { type: string }
+                state: { type: string, maxLength: 2 }
+                shipping_cost: { type: number, format: float }
+                carrier_name: { type: string }
+                tracking_code: { type: string }
+                estimated_delivery_date: { type: string, format: date }
+                notes: { type: string }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '200': { $ref: '#/components/responses/HtmlFormReRender' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /historico/:
+    get:
+      tags: [Checkout & Pedidos]
+      summary: Histórico (compras, vendas e trocas, paginados)
+      parameters:
+        - { name: purchase_page, in: query, schema: { type: integer } }
+        - { name: sale_page, in: query, schema: { type: integer } }
+        - { name: sent_trade_page, in: query, schema: { type: integer } }
+        - { name: received_trade_page, in: query, schema: { type: integer } }
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+
+  # ---------------------- PERFIL ----------------------------
+  /editar-perfil/:
+    get:
+      tags: [Perfil]
+      summary: Form de edição de perfil (dados + foto)
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+    post:
+      tags: [Perfil]
+      summary: Atualizar perfil (e-mail é somente leitura)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                first_name: { type: string }
+                last_name: { type: string }
+                profile_picture: { type: string, format: binary }
+                # CommonProfile (PF)
+                birth_date: { type: string, format: date }
+                phone: { type: string }
+                cep: { type: string }
+                address: { type: string }
+                # StoreProfile (PJ)
+                cnpj: { type: string }
+                razao_social: { type: string }
+                fantasy_name: { type: string }
+                state_registration: { type: string }
+                responsible_name: { type: string }
+                responsible_cpf: { type: string }
+                commercial_cep: { type: string }
+                commercial_address: { type: string }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '200': { $ref: '#/components/responses/HtmlFormReRender' }
+
+  /alterar-senha/:
+    get:
+      tags: [Perfil]
+      summary: Form de alteração de senha
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+    post:
+      tags: [Perfil]
+      summary: Alterar senha
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [old_password, new_password, confirm_password, csrfmiddlewaretoken]
+              properties:
+                old_password: { type: string, format: password }
+                new_password: { type: string, format: password }
+                confirm_password: { type: string, format: password }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302': { description: "Senha alterada (→ editar-perfil)." }
+        '200':
+          description: "Erro (senha atual incorreta / validação) — re-render com mensagem."
+
+  /perfil/{username}/:
+    get:
+      tags: [Perfil]
+      summary: Perfil público do usuário + anúncios ativos
+      security: []
+      parameters: [ { $ref: '#/components/parameters/UsernamePath' } ]
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ---------------------- TROCAS ----------------------------
+  /trocas/:
+    get:
+      tags: [Trocas]
+      summary: Negociações enviadas e recebidas
+      parameters:
+        - { name: sent_page, in: query, schema: { type: integer } }
+        - { name: received_page, in: query, schema: { type: integer } }
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+
+  /trocas/{pk}/:
+    get:
+      tags: [Trocas]
+      summary: Detalhe da negociação (timeline, propostas, ações)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { description: "Usuário não participa da negociação → `/trocas/`." }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /trocas/{pk}/propostas/:
+    post:
+      tags: [Trocas]
+      summary: Criar proposta / contraproposta
+      description: |
+        Respeita a alternância de turnos. A proposta exige pelo menos um item
+        OU um valor em dinheiro. Aceita imagens.
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [csrfmiddlewaretoken]
+              properties:
+                item_description: { type: string }
+                cash_amount: { type: string, example: "R$ 150,00" }
+                note: { type: string }
+                images:
+                  type: array
+                  items: { type: string, format: binary }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302':
+          description: Proposta registrada (ou erro via mensagem flash) — volta ao detalhe.
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /trocas/{pk}/propostas/{proposal_pk}/aceitar/:
+    post:
+      tags: [Trocas]
+      summary: Aceitar proposta
+      description: |
+        Qualquer participante pode aceitar a proposta **mais recente** feita pelo
+        outro lado. Cria/atualiza o `TradeFulfillment`, aprova a troca e redireciona
+        para o checkout da troca.
+      parameters:
+        - { $ref: '#/components/parameters/PkPath' }
+        - { $ref: '#/components/parameters/ProposalPkPath' }
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [csrfmiddlewaretoken]
+              properties:
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302':
+          description: Aceita (→ `/trocas/{pk}/checkout/`) ou erro de regra (→ detalhe).
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /trocas/{pk}/recusar/:
+    post:
+      tags: [Trocas]
+      summary: Recusar negociação (quem está na vez)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [csrfmiddlewaretoken]
+              properties: { csrfmiddlewaretoken: { type: string } }
+      responses:
+        '302':
+          description: Recusada (→ `/trocas/`) ou erro de regra (→ detalhe).
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /trocas/{pk}/cancelar/:
+    post:
+      tags: [Trocas]
+      summary: Cancelar negociação (apenas o solicitante)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [csrfmiddlewaretoken]
+              properties: { csrfmiddlewaretoken: { type: string } }
+      responses:
+        '302': { description: "Cancelada (→ `/trocas/`)." }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /trocas/{pk}/checkout/:
+    get:
+      tags: [Trocas]
+      summary: Checkout da troca (pagamento de diferença + entrega)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { description: "Negociação encerrada / sem fulfillment → detalhe." }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Trocas]
+      summary: Salvar dados / confirmar troca
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [payment_method, delivery_method, csrfmiddlewaretoken]
+              properties:
+                payment_method: { type: string, enum: [pix, credit_card, debit_card, bank_transfer] }
+                delivery_method: { type: string, enum: [pickup, seller_shipping, platform_shipping, to_agree] }
+                recipient_name: { type: string }
+                recipient_phone: { type: string }
+                postal_code: { type: string }
+                street: { type: string }
+                number: { type: string }
+                complement: { type: string }
+                neighborhood: { type: string }
+                city: { type: string }
+                state: { type: string, maxLength: 2 }
+                notes: { type: string }
+                confirm_trade: { type: string, enum: ["1"], description: "Confirma a entrega deste participante" }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '200': { description: "Re-render do checkout (com QR quando há valor)." }
+        '302': { description: "Confirmação registrada / troca concluída." }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /trocas/{pk}/entrega/:
+    post:
+      tags: [Trocas]
+      summary: Salvar dados de entrega do participante
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [csrfmiddlewaretoken]
+              properties:
+                delivery_method: { type: string, enum: [pickup, seller_shipping, platform_shipping, to_agree] }
+                recipient_name: { type: string }
+                recipient_phone: { type: string }
+                postal_code: { type: string }
+                street: { type: string }
+                number: { type: string }
+                complement: { type: string }
+                neighborhood: { type: string }
+                city: { type: string }
+                state: { type: string, maxLength: 2 }
+                notes: { type: string }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /trocas/{pk}/mensagem/:
+    post:
+      tags: [Trocas]
+      summary: Enviar mensagem na negociação
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [content, csrfmiddlewaretoken]
+              properties:
+                content: { type: string }
+                csrfmiddlewaretoken: { type: string }
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ------------------ WEBHOOKS & INTEGRAÇÕES ----------------
+  /webhooks/mercadopago/:
+    post:
+      tags: [Webhooks & Integrações, API JSON]
+      summary: Webhook de pagamento (Mercado Pago)
+      security: []
+      description: |
+        Endpoint público (`csrf_exempt`). Localiza a `PaymentTransaction` por
+        `preference_id` ou `external_reference` e atualiza o status conforme o mapa
+        de status do Mercado Pago.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebhookPayload' }
+      responses:
+        '200':
+          description: Processado (pode ter atualizado ou não).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WebhookResult' }
+        '400': { description: "JSON inválido." }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+
+  /api/delivery/{order_pk}/status/:
+    post:
+      tags: [Webhooks & Integrações, API JSON]
+      summary: Atualizar status de entrega (API)
+      security: []
+      description: |
+        Endpoint público (`csrf_exempt`) para atualizar a entrega de um pedido.
+        Valida o status contra as opções permitidas e a data (ISO `YYYY-MM-DD`).
+      parameters: [ { $ref: '#/components/parameters/OrderPkPath' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeliveryUpdateRequest' }
+      responses:
+        '200':
+          description: Entrega atualizada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeliveryUpdateResult' }
+        '400':
+          description: "Status inválido, data inválida ou JSON malformado."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeliveryUpdateResult' }
+        '404':
+          description: "Entrega não encontrada para o pedido."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeliveryUpdateResult' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }

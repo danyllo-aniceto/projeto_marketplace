@@ -22,5 +22,8 @@ staticfiles/
 .DS_Store
 Thumbs.db
 
+# Arquivos temporários do Office (lock criado com o arquivo aberto)
+~$*
+
 # PostgreSQL (se estiver dentro do projeto)
 pgsql/data/
