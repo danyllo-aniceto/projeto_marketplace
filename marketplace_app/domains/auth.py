@@ -79,25 +79,61 @@ def change_password(request):
 def user_profile(request, username):
     User = get_user_model()
     profile_user = get_object_or_404(User, username=username)
-    listings = profile_user.listings.filter(status='active').prefetch_related('images').order_by('-created_at')
 
     profile = None
     if profile_user.is_store:
         profile, _ = StoreProfile.objects.get_or_create(user=profile_user)
+        # Vitrine/catálogo da loja: mostra também itens esgotados (status sold),
+        # ocultando apenas os pausados. Assim a loja não recria anúncios — repõe estoque.
+        listings = (
+            profile_user.listings
+            .exclude(status='paused')
+            .prefetch_related('images')
+            .order_by('-created_at')
+        )
     else:
         profile, _ = CommonProfile.objects.get_or_create(user=profile_user)
+        listings = (
+            profile_user.listings
+            .filter(status='active')
+            .prefetch_related('images')
+            .order_by('-created_at')
+        )
 
     return render(request, 'users/user_profile.html', {
         'profile_user': profile_user,
         'profile': profile,
         'listings': listings,
+        'is_store_view': profile_user.is_store,
     })
 
 
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_LOCKOUT_SECONDS = 5 * 60  # 5 minutos
+
+
+def _login_ip(request):
+    xff = request.META.get('HTTP_X_FORWARDED_FOR')
+    if xff:
+        return xff.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', 'unknown')
+
+
 def user_login(request):
+    from django.core.cache import cache
+
+    cache_key = f'login_attempts:{_login_ip(request)}'
+    attempts = cache.get(cache_key, 0)
+    locked = attempts >= LOGIN_MAX_ATTEMPTS
+
     form = AuthenticationForm(request, data=request.POST or None)
 
+    if request.method == 'POST' and locked:
+        messages.error(request, 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.')
+        return render(request, 'users/login.html', {'form': form, 'locked': True})
+
     if request.method == 'POST' and form.is_valid():
+        cache.delete(cache_key)  # sucesso zera o contador
         remember = request.POST.get('remember')
         user = form.get_user()
         login(request, user)
@@ -110,16 +146,41 @@ def user_login(request):
         return redirect('home')
 
     if request.method == 'POST' and not form.is_valid():
-        messages.error(request, 'Verifique seu usuário e senha e tente novamente.')
+        # incrementa e (re)define a expiração da janela de bloqueio
+        attempts = cache.get(cache_key, 0) + 1
+        cache.set(cache_key, attempts, LOGIN_LOCKOUT_SECONDS)
+        restantes = max(0, LOGIN_MAX_ATTEMPTS - attempts)
+        if restantes:
+            messages.error(request, f'Usuário ou senha inválidos. Tentativas restantes: {restantes}.')
+        else:
+            messages.error(request, 'Muitas tentativas. Login bloqueado por alguns minutos.')
 
     return render(request, 'users/login.html', {
         'form': form,
+        'locked': locked,
     })
 
 
 def user_logout(request):
     logout(request)
     return redirect('home')
+
+
+@login_required
+def account_security(request):
+    from marketplace_app.models import Listing, ListingReport
+    from marketplace_app.moderation import MAX_STRIKES
+
+    user = request.user
+    listings_count = Listing.objects.filter(seller=user).count()
+    reports_received = ListingReport.objects.filter(listing__seller=user).count()
+
+    return render(request, 'users/account_security.html', {
+        'strikes': user.strikes,
+        'max_strikes': MAX_STRIKES,
+        'listings_count': listings_count,
+        'reports_received': reports_received,
+    })
 
 
 def user_register(request):

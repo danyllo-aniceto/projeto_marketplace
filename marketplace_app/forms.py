@@ -2,7 +2,8 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from decimal import Decimal, InvalidOperation
-from .models import Listing, Comment, CommonProfile, StoreProfile, CartItem, Order, TradeMessage, TradeRequest, TradeProposal, TradeFulfillment, TradeDelivery, Delivery, PaymentTransaction
+from .moderation import validate_clean_text, validate_image_upload
+from .models import Listing, Comment, CommonProfile, StoreProfile, CartItem, Order, TradeMessage, TradeRequest, TradeProposal, TradeFulfillment, TradeDelivery, Delivery, PaymentTransaction, Address
 
 User = get_user_model()
 
@@ -126,6 +127,7 @@ class ListingForm(forms.ModelForm):
             'category',
             'listing_type',
             'condition',
+            'stock',
         ]
         labels = {
             'title': 'Título do Anúncio',
@@ -135,6 +137,7 @@ class ListingForm(forms.ModelForm):
             'category': 'Categoria',
             'listing_type': 'Tipo de Anúncio',
             'condition': 'Condição do Produto',
+            'stock': 'Quantidade em estoque',
         }
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: iPhone 14 Pro'}),
@@ -143,6 +146,7 @@ class ListingForm(forms.ModelForm):
             'category': forms.Select(attrs={'class': 'form-control'}),
             'listing_type': forms.Select(attrs={'class': 'form-control'}),
             'condition': forms.Select(attrs={'class': 'form-control'}),
+            'stock': forms.NumberInput(attrs={'class': 'form-control', 'min': 0, 'step': 1}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -156,6 +160,10 @@ class ListingForm(forms.ModelForm):
 
         for field_name in ['title', 'description', 'trade_suggestions', 'price', 'category', 'listing_type', 'condition']:
             self.fields[field_name].required = True
+
+        self.fields['stock'].required = True
+        if not self.is_bound and is_create_mode and not self.initial.get('stock'):
+            self.initial['stock'] = 1
 
         self.fields['price'].required = False
         self.fields['trade_suggestions'].required = False
@@ -178,6 +186,27 @@ class ListingForm(forms.ModelForm):
                 ('trade', 'Troca'),
                 ('both', 'Venda e Troca'),
             ]
+
+    def clean_stock(self):
+        stock = self.cleaned_data.get('stock')
+        if stock is None or stock < 0:
+            raise ValidationError('A quantidade em estoque não pode ser negativa.')
+        return stock
+
+    def clean_title(self):
+        return validate_clean_text(self.cleaned_data.get('title'), 'título')
+
+    def clean_description(self):
+        return validate_clean_text(self.cleaned_data.get('description'), 'descrição')
+
+    def clean_trade_suggestions(self):
+        return validate_clean_text(self.cleaned_data.get('trade_suggestions'), 'sugestão de troca')
+
+    def clean_images(self):
+        images = self.cleaned_data.get('images') or []
+        for img in images:
+            validate_image_upload(img)
+        return images
 
     def clean_price(self):
         # If the user selected 'trade', price should be ignored early
@@ -254,6 +283,13 @@ class UserProfileForm(forms.ModelForm):
             'last_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Seu sobrenome'}),
             'profile_picture': forms.FileInput(attrs={'class': 'file-input', 'accept': 'image/*'}),
         }
+
+    def clean_profile_picture(self):
+        picture = self.cleaned_data.get('profile_picture')
+        # Valida apenas quando um novo arquivo é enviado.
+        if picture and hasattr(picture, 'content_type'):
+            validate_image_upload(picture)
+        return picture
 
 
 class ChangePasswordForm(forms.Form):
@@ -561,6 +597,9 @@ class CommentForm(forms.ModelForm):
             }),
         }
 
+    def clean_content(self):
+        return validate_clean_text(self.cleaned_data.get('content'), 'comentário')
+
 
 class CartItemActionForm(forms.ModelForm):
     class Meta:
@@ -692,6 +731,9 @@ class TradeMessageForm(forms.ModelForm):
             }),
         }
 
+    def clean_content(self):
+        return validate_clean_text(self.cleaned_data.get('content'), 'mensagem')
+
 
 class TradeStatusForm(forms.Form):
     status = forms.ChoiceField(
@@ -729,6 +771,18 @@ class TradeProposalForm(forms.ModelForm):
             'item_description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Descreva o produto que será oferecido na troca'}),
             'note': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Adicione detalhes da proposta'}),
         }
+
+    def clean_item_description(self):
+        return validate_clean_text(self.cleaned_data.get('item_description'), 'descrição')
+
+    def clean_note(self):
+        return validate_clean_text(self.cleaned_data.get('note'), 'observação')
+
+    def clean_images(self):
+        images = self.cleaned_data.get('images') or []
+        for img in images:
+            validate_image_upload(img)
+        return images
 
     def clean_cash_amount(self):
         raw = self.cleaned_data.get('cash_amount', '') or ''
@@ -783,17 +837,30 @@ class TradeDeliveryForm(forms.ModelForm):
             'delivery_method', 'recipient_name', 'recipient_phone', 'postal_code',
             'street', 'number', 'complement', 'neighborhood', 'city', 'state', 'notes',
         ]
+        labels = {
+            'delivery_method': 'Forma de entrega',
+            'recipient_name': 'Nome do destinatário',
+            'recipient_phone': 'Telefone',
+            'postal_code': 'CEP',
+            'street': 'Rua',
+            'number': 'Número',
+            'complement': 'Complemento',
+            'neighborhood': 'Bairro',
+            'city': 'Cidade',
+            'state': 'Estado (UF)',
+            'notes': 'Observações',
+        }
         widgets = {
             'delivery_method': forms.Select(attrs={'class': 'form-control'}),
-            'recipient_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'recipient_phone': forms.TextInput(attrs={'class': 'form-control'}),
-            'postal_code': forms.TextInput(attrs={'class': 'form-control'}),
-            'street': forms.TextInput(attrs={'class': 'form-control'}),
-            'number': forms.TextInput(attrs={'class': 'form-control'}),
-            'complement': forms.TextInput(attrs={'class': 'form-control'}),
-            'neighborhood': forms.TextInput(attrs={'class': 'form-control'}),
-            'city': forms.TextInput(attrs={'class': 'form-control'}),
-            'state': forms.TextInput(attrs={'class': 'form-control', 'maxlength': 2}),
+            'recipient_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome de quem recebe'}),
+            'recipient_phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(00) 00000-0000'}),
+            'postal_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '00000-000'}),
+            'street': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome da rua'}),
+            'number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nº'}),
+            'complement': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apto, bloco (opcional)'}),
+            'neighborhood': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Bairro'}),
+            'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Cidade'}),
+            'state': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'UF', 'maxlength': 2}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
@@ -804,4 +871,39 @@ class PaymentTransactionForm(forms.ModelForm):
         fields = ['gateway']
         widgets = {
             'gateway': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+
+class AddressForm(forms.ModelForm):
+    class Meta:
+        model = Address
+        fields = [
+            'label', 'recipient_name', 'recipient_phone', 'postal_code',
+            'street', 'number', 'complement', 'neighborhood', 'city', 'state', 'is_default',
+        ]
+        labels = {
+            'label': 'Apelido do endereço',
+            'recipient_name': 'Nome do destinatário',
+            'recipient_phone': 'Telefone',
+            'postal_code': 'CEP',
+            'street': 'Rua',
+            'number': 'Número',
+            'complement': 'Complemento',
+            'neighborhood': 'Bairro',
+            'city': 'Cidade',
+            'state': 'Estado (UF)',
+            'is_default': 'Definir como endereço padrão',
+        }
+        widgets = {
+            'label': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ex: Casa, Trabalho'}),
+            'recipient_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome de quem recebe'}),
+            'recipient_phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(00) 00000-0000'}),
+            'postal_code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '00000-000'}),
+            'street': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome da rua'}),
+            'number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nº'}),
+            'complement': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apto, bloco (opcional)'}),
+            'neighborhood': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Bairro'}),
+            'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Cidade'}),
+            'state': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'UF', 'maxlength': 2}),
+            'is_default': forms.CheckboxInput(),
         }

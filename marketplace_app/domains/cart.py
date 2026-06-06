@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from marketplace_app.forms import CartItemActionForm
 from marketplace_app.models import Cart, CartItem, Listing
@@ -9,7 +10,12 @@ from marketplace_app.models import Cart, CartItem, Listing
 
 @login_required
 def add_to_cart(request, pk):
-    listing = get_object_or_404(Listing, pk=pk, status='active')
+    listing = get_object_or_404(Listing, pk=pk)
+
+    if not listing.is_available:
+        messages.error(request, 'Este anúncio está esgotado ou indisponível.')
+        next_url = request.GET.get('next')
+        return redirect(next_url) if next_url else redirect('listing_detail', pk=pk)
 
     if listing.seller_id == request.user.id:
         messages.error(request, 'Você não pode adicionar ao carrinho um anúncio criado por você.')
@@ -47,9 +53,12 @@ def add_to_cart(request, pk):
 
 
 @login_required
+@require_POST
 def remove_from_cart(request, pk):
     cart, _ = Cart.objects.get_or_create(user=request.user)
-    CartItem.objects.filter(cart=cart, pk=pk).delete()
+    deleted, _ = CartItem.objects.filter(cart=cart, pk=pk).delete()
+    if deleted:
+        messages.success(request, 'Item removido do carrinho.')
     return redirect('cart')
 
 

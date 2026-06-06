@@ -1,0 +1,80 @@
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_address">
+    <input type="hidden" name="delivery_method" value="{{ address_form.instance.delivery_method|default:'to_agree' }}">
+
+    {% if show_picker and saved_addresses %}
+    <div class="saved-address-picker" id="trade-address-picker">
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.25rem;">Usar um endereço salvo:</p>
+        {% for a in saved_addresses %}
+        <div class="saved-address-option" data-address-id="{{ a.id }}" role="button" tabindex="0">
+            <span class="material-icons">{% if a.is_default %}home{% else %}place{% endif %}</span>
+            <div class="saved-address-info">
+                <strong>{{ a.label|default:"Endereço" }}{% if a.is_default %} · padrão{% endif %}</strong>
+                <span>{{ a.short }}</span>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="saved-address-option" data-address-id="new" role="button" tabindex="0">
+            <span class="material-icons">add</span>
+            <div class="saved-address-info"><strong>Usar um novo endereço</strong><span>Preencher manualmente</span></div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="checkout-address-fields">
+        <div class="form-row">
+            <div class="form-group">
+                {{ address_form.recipient_name.label_tag }}
+                {{ address_form.recipient_name }}
+                {% if address_form.recipient_name.errors %}<div class="field-error">{{ address_form.recipient_name.errors }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                {{ address_form.recipient_phone.label_tag }}
+                {{ address_form.recipient_phone }}
+                {% if address_form.recipient_phone.errors %}<div class="field-error">{{ address_form.recipient_phone.errors }}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                {{ address_form.postal_code.label_tag }}
+                {{ address_form.postal_code }}
+                {% if address_form.postal_code.errors %}<div class="field-error">{{ address_form.postal_code.errors }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                {{ address_form.state.label_tag }}
+                {{ address_form.state }}
+                {% if address_form.state.errors %}<div class="field-error">{{ address_form.state.errors }}</div>{% endif %}
+            </div>
+        </div>
+        <div class="form-group">
+            {{ address_form.street.label_tag }}
+            {{ address_form.street }}
+            {% if address_form.street.errors %}<div class="field-error">{{ address_form.street.errors }}</div>{% endif %}
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                {{ address_form.number.label_tag }}
+                {{ address_form.number }}
+                {% if address_form.number.errors %}<div class="field-error">{{ address_form.number.errors }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                {{ address_form.complement.label_tag }}
+                {{ address_form.complement }}
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                {{ address_form.neighborhood.label_tag }}
+                {{ address_form.neighborhood }}
+                {% if address_form.neighborhood.errors %}<div class="field-error">{{ address_form.neighborhood.errors }}</div>{% endif %}
+            </div>
+            <div class="form-group">
+                {{ address_form.city.label_tag }}
+                {{ address_form.city }}
+                {% if address_form.city.errors %}<div class="field-error">{{ address_form.city.errors }}</div>{% endif %}
+            </div>
+        </div>
+    </div>
+    <button type="submit" class="btn-secondary" style="width: 100%; margin-top: 0.5rem;">Salvar endereço</button>
+</form>

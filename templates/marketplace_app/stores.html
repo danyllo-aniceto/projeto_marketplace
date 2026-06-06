@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Lojas — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">storefront</span> Lojas</h2>
+    </div>
+
+    <form method="get" class="store-search">
+        <span class="material-icons">search</span>
+        <input type="text" name="q" value="{{ search }}" placeholder="Buscar loja por nome">
+        <button type="submit" class="btn-primary">Buscar</button>
+    </form>
+
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0 0 1rem;">
+        {{ total_count }} loja{{ total_count|pluralize:"s" }} · {{ verified_count }} verificada{{ verified_count|pluralize:"s" }}
+    </p>
+
+    {% if page_obj.object_list %}
+        <div class="store-grid">
+            {% for store in page_obj %}
+            <a href="{% url 'user_profile' store.user.username %}" class="store-card {% if store.verified %}is-verified{% endif %}">
+                <div class="store-card-avatar">
+                    {% if store.user.profile_picture %}
+                        <img src="{{ store.user.profile_picture.url }}" alt="{{ store.fantasy_name }}">
+                    {% else %}
+                        <span class="material-icons">storefront</span>
+                    {% endif %}
+                </div>
+                <div class="store-card-body">
+                    <div class="store-card-name">
+                        {{ store.fantasy_name|default:store.razao_social|default:store.user.username }}
+                        {% if store.verified %}
+                            <span class="material-icons store-verified-tick" title="Loja verificada">verified</span>
+                        {% endif %}
+                    </div>
+                    <p class="store-card-sub">@{{ store.user.username }}</p>
+                    <div class="store-card-meta">
+                        <span><span class="material-icons">inventory_2</span> {{ store.active_listings }} anúncio{{ store.active_listings|pluralize:"s" }}</span>
+                        {% if store.verified %}
+                            <span class="badge badge-approved">Verificada</span>
+                        {% else %}
+                            <span class="badge badge-info">Loja</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn-details">Anterior</a>
+            {% endif %}
+            <span class="pagination-info">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn-details">Próxima</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <span class="material-icons empty-icon">storefront</span>
+            <h3>Nenhuma loja encontrada</h3>
+            <p>{% if search %}Tente outro termo de busca.{% else %}Ainda não há lojas cadastradas.{% endif %}</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

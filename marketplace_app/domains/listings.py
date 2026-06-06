@@ -3,9 +3,32 @@ from django.core.paginator import Paginator
 from django.db import models
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from django.contrib.auth import logout
+from django.urls import reverse
 
 from marketplace_app.forms import CommentForm, ListingForm
-from marketplace_app.models import Cart, CartItem, Category, Listing, ListingImage, Order, OrderItem, TradeRequest
+from marketplace_app.models import Cart, CartItem, Category, Listing, ListingImage, Order, OrderItem, TradeRequest, ListingReport
+from marketplace_app.moderation import screen_user_text
+
+
+def _block_if_prohibited(request, redirect_url, *texts):
+    """Verifica termos proibidos; registra strike e devolve um redirect se houver
+    violação (ou None se o conteúdo estiver limpo). Bane a conta na 3ª advertência.
+    `redirect_url` deve ser uma URL/caminho já resolvido."""
+    flagged, strikes, banned = screen_user_text(request, *texts)
+    if not flagged:
+        return None
+    if banned:
+        logout(request)
+        messages.error(request, 'Sua conta foi suspensa após múltiplas violações das regras de conteúdo.')
+        return redirect('home')
+    messages.error(
+        request,
+        f'Conteúdo não permitido detectado. Advertência {strikes}/3 — na 3ª a conta é suspensa.'
+    )
+    return redirect(redirect_url)
 
 
 PROCESSING_ORDER_STATUSES = [Order.PENDING_PAYMENT, Order.PAID]
@@ -171,20 +194,54 @@ def my_listings(request):
 
 
 @login_required
+@require_POST
+def report_listing(request, pk):
+    listing = get_object_or_404(Listing, pk=pk)
+    reason = request.POST.get('reason', ListingReport.OTHER)
+    if reason not in dict(ListingReport.REASON_CHOICES):
+        reason = ListingReport.OTHER
+    detail = (request.POST.get('detail') or '').strip()[:1000]
+
+    # Evita denúncias duplicadas abertas do mesmo usuário.
+    already = ListingReport.objects.filter(
+        listing=listing, reporter=request.user, status=ListingReport.OPEN
+    ).exists()
+    if not already:
+        ListingReport.objects.create(
+            listing=listing, reporter=request.user, reason=reason, detail=detail,
+        )
+        messages.success(request, 'Denúncia enviada. Nossa equipe vai analisar. Obrigado!')
+    else:
+        messages.info(request, 'Você já tem uma denúncia em análise para este anúncio.')
+
+    return redirect('listing_detail', pk=pk)
+
+
+@login_required
 def edit_listing(request, pk):
     from marketplace_app.models import TradeRequest as TR
     listing = get_object_or_404(Listing, pk=pk, seller=request.user)
-    is_locked = _listing_is_locked(listing)
-
-    if is_locked and request.method == 'POST':
-        messages.error(request, 'Edição bloqueada — anúncio em negociação.')
-        return redirect('edit_listing', pk=pk)
+    # Edição sempre permitida (inclusive para gerir estoque). Se houver transação
+    # em andamento, mostramos apenas um aviso — não bloqueamos.
+    has_active_tx = _listing_is_locked(listing)
 
     if request.method == 'POST':
+        violation = _block_if_prohibited(
+            request, reverse('edit_listing', args=[pk]),
+            request.POST.get('title', ''), request.POST.get('description', ''),
+            request.POST.get('trade_suggestions', ''),
+        )
+        if violation:
+            return violation
         form = ListingForm(request.POST, request.FILES, instance=listing, user=request.user)
         if form.is_valid():
             anuncio = form.save(commit=False)
             anuncio.seller = request.user
+            # Estoque controla o status: 0 = esgotado (SOLD); repor reativa (ACTIVE).
+            if anuncio.stock == 0:
+                anuncio.status = Listing.SOLD
+            elif anuncio.status == Listing.SOLD and anuncio.stock > 0:
+                anuncio.status = Listing.ACTIVE
             anuncio.save()
 
             for image in form.cleaned_data.get('images', []):
@@ -196,7 +253,7 @@ def edit_listing(request, pk):
         form = ListingForm(instance=listing, user=request.user)
 
     active_trade = None
-    if is_locked:
+    if has_active_tx:
         active_trade = TR.objects.filter(
             listing=listing,
             status__in=PROCESSING_TRADE_STATUSES,
@@ -205,7 +262,8 @@ def edit_listing(request, pk):
     return render(request, 'marketplace_app/edit_listing.html', {
         'form': form,
         'listing': listing,
-        'is_locked': is_locked,
+        'is_locked': False,
+        'has_active_tx': has_active_tx,
         'active_trade': active_trade,
     })
 
@@ -219,6 +277,13 @@ def listing_detail(request, pk):
         if not request.user.is_authenticated:
             return redirect('login')
 
+        violation = _block_if_prohibited(
+            request, reverse('listing_detail', args=[pk]),
+            request.POST.get('content', ''),
+        )
+        if violation:
+            return violation
+
         comment_form = CommentForm(request.POST)
         if comment_form.is_valid():
             comment = comment_form.save(commit=False)
@@ -231,6 +296,27 @@ def listing_detail(request, pk):
                 except Comment.DoesNotExist:
                     pass
             comment.save()
+
+            from marketplace_app.models import Notification
+            from marketplace_app.notifications import notify
+            from django.urls import reverse
+            listing_url = reverse('listing_detail', args=[listing.pk])
+            if comment.parent:
+                # Resposta → notifica o autor do comentário original.
+                notify(
+                    comment.parent.user,
+                    'Responderam seu comentário',
+                    f'{request.user.username} respondeu em "{listing.title}".',
+                    url=listing_url, category=Notification.COMMENT, icon='reply', actor=request.user,
+                )
+            else:
+                # Comentário → notifica o dono do anúncio.
+                notify(
+                    listing.seller,
+                    'Novo comentário no seu anúncio',
+                    f'{request.user.username} comentou em "{listing.title}".',
+                    url=listing_url, category=Notification.COMMENT, icon='chat_bubble', actor=request.user,
+                )
             return redirect('listing_detail', pk=pk)
 
     comments = (
@@ -268,6 +354,13 @@ def delete_listing(request, pk):
 @login_required
 def criar_anuncio(request):
     if request.method == 'POST':
+        violation = _block_if_prohibited(
+            request, reverse('criar_anuncio'),
+            request.POST.get('title', ''), request.POST.get('description', ''),
+            request.POST.get('trade_suggestions', ''),
+        )
+        if violation:
+            return violation
         form = ListingForm(request.POST, request.FILES, user=request.user)
         if form.is_valid():
             anuncio = form.save(commit=False)

@@ -151,7 +151,11 @@
                         <div class="timeline-item-body">
                             <p>{{ item.description }}</p>
                             {% if item.cash_amount is not None and item.cash_amount > 0 %}
-                                <p class="timeline-cash"><span class="material-icons" style="font-size: 14px; vertical-align: middle;">attach_money</span> Valor adicional: R$ {{ item.cash_amount|floatformat:2 }}</p>
+                                <p class="timeline-cash">
+                                    <span class="material-icons" style="font-size: 14px; vertical-align: middle;">attach_money</span>
+                                    {% if item.cash_payer_name %}{% if item.cash_payer_is_me %}Você paga{% else %}{{ item.cash_payer_name }} paga{% endif %}{% else %}Valor adicional:{% endif %}
+                                    R$ {{ item.cash_amount|floatformat:2 }}
+                                </p>
                             {% endif %}
                             {% if item.note %}
                                 <p style="color: var(--text-muted); margin-top: 0.3rem;">{{ item.note }}</p>
@@ -206,12 +210,22 @@
                                 <p class="latest-offer-line"><span class="material-icons">inventory_2</span> {{ latest_proposal.item_description }}</p>
                             {% endif %}
                             {% if latest_proposal.cash_amount %}
-                                <p class="latest-offer-line"><span class="material-icons">payments</span> R$ {{ latest_proposal.cash_amount|floatformat:2 }} em dinheiro</p>
+                                <p class="latest-offer-line">
+                                    <span class="material-icons">payments</span>
+                                    R$ {{ latest_proposal.cash_amount|floatformat:2 }} —
+                                    {% if pending_payer_is_me %}<strong>você</strong> paga{% else %}<strong>{{ pending_payer.username }}</strong> paga{% endif %}
+                                </p>
                             {% endif %}
                             {% if latest_proposal.note %}
                                 <p class="latest-offer-note">{{ latest_proposal.note }}</p>
                             {% endif %}
                         </div>
+                        {% if latest_proposal.cash_amount and pending_payer_is_me %}
+                        <p style="font-size: 0.78rem; color: var(--warning-color); margin: 0 0 0.6rem; display: flex; align-items: center; gap: 0.3rem;">
+                            <span class="material-icons" style="font-size: 14px;">warning</span>
+                            Ao aceitar, você se compromete a pagar R$ {{ latest_proposal.cash_amount|floatformat:2 }}.
+                        </p>
+                        {% endif %}
                         <form method="post" action="{% url 'trade_proposal_accept' trade_request.id latest_proposal.id %}">
                             {% csrf_token %}
                             <button type="submit" class="btn-secondary" style="width: 100%;">
@@ -235,9 +249,38 @@
                         <div class="form-group">
                             {{ proposal_form.cash_amount.label_tag }}
                             {{ proposal_form.cash_amount }}
+                            <p style="font-size: 0.76rem; color: var(--text-muted); margin: 0.3rem 0 0; line-height: 1.4;">
+                                Opcional. Valor adicional além do item. Deixe em branco para troca sem dinheiro.
+                            </p>
                             {% if proposal_form.cash_amount.errors %}
                                 <div class="field-error">{{ proposal_form.cash_amount.errors }}</div>
                             {% endif %}
+                        </div>
+
+                        <!-- Quem paga o valor adicional -->
+                        <div class="form-group" id="cash-payer-group">
+                            <label>Quem paga esse valor?</label>
+                            <div class="payer-choice">
+                                <label class="payer-option">
+                                    <input type="radio" name="cash_payer" value="requester"
+                                           {% if is_requester %}checked{% endif %}>
+                                    <span class="payer-option-box">
+                                        <strong>{{ trade_request.requester.username }}</strong>
+                                        <span>quem solicitou{% if is_requester %} (você){% endif %}</span>
+                                    </span>
+                                </label>
+                                <label class="payer-option">
+                                    <input type="radio" name="cash_payer" value="owner"
+                                           {% if is_owner %}checked{% endif %}>
+                                    <span class="payer-option-box">
+                                        <strong>{{ trade_request.counterparty.username }}</strong>
+                                        <span>dono do anúncio{% if is_owner %} (você){% endif %}</span>
+                                    </span>
+                                </label>
+                            </div>
+                            <p style="font-size: 0.76rem; color: var(--text-muted); margin: 0.35rem 0 0; line-height: 1.4;">
+                                Numa contraproposta você pode exigir que o <strong>outro</strong> pague.
+                            </p>
                         </div>
                         <div class="form-group">
                             {{ proposal_form.note.label_tag }}
@@ -262,14 +305,23 @@
 
                 {% elif trade_request.status == 'approved' %}
                     <div class="action-card-label is-approved">
-                        <span class="material-icons">check_circle</span> Troca aprovada
+                        <span class="material-icons">check_circle</span> Proposta aceita
                     </div>
                     <div class="waiting-message" style="border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.04); color: var(--text-gray);">
-                        <span class="material-icons" style="color: var(--success-color);">local_shipping</span>
-                        <span>A negociação foi concluída. Agora confirme os dados de entrega.</span>
+                        <span class="material-icons" style="color: var(--success-color);">task_alt</span>
+                        <span>Acordo fechado! Finalize em etapas: endereço{% if pending_cash %}, pagamento{% endif %} e confirmação.</span>
                     </div>
+                    {% if pending_cash %}
+                    <div class="trade-payer-note" style="margin-top: 0.85rem;">
+                        <span class="material-icons">payments</span>
+                        <span>
+                            {% if pending_payer_is_me %}<strong>Você</strong> paga{% else %}<strong>{{ pending_payer.username }}</strong> paga{% endif %}
+                            R$ {{ pending_cash|floatformat:2 }} a mais nesta troca.
+                        </span>
+                    </div>
+                    {% endif %}
                     <a href="{% url 'trade_checkout' trade_request.id %}" class="btn-secondary" style="width: 100%; margin-top: 0.85rem; justify-content: center;">
-                        <span class="material-icons">local_shipping</span> Ir para entrega
+                        <span class="material-icons">arrow_forward</span> Finalizar troca
                     </a>
 
                 {% elif trade_is_final %}
@@ -337,128 +389,6 @@
 
         </div>
     </div>
-
-    <!-- ======== SEÇÃO DE ENTREGA (só quando aprovado) ======== -->
-    {% if trade_request.status == 'approved' or trade_request.status == 'completed' %}
-    <div class="trade-delivery-section">
-        <h2><span class="material-icons">local_shipping</span> Entrega</h2>
-        <p style="color: var(--text-muted); font-size: 0.88rem; margin: -0.5rem 0 1.25rem; line-height: 1.55;">
-            A troca só é finalizada quando os dois participantes confirmam os dados de entrega.
-        </p>
-
-        <!-- Status de ambos os participantes -->
-        <div class="trade-delivery-grid">
-            <div class="delivery-party-card {% if user_delivery and user_delivery.status == 'confirmed' %}is-confirmed{% endif %}">
-                <p class="delivery-party-name">
-                    <span class="material-icons" style="font-size: 18px; color: var(--accent-cyan);">person</span>
-                    Você
-                    {% if user_delivery and user_delivery.status == 'confirmed' %}
-                        <span class="badge badge-approved" style="font-size: 0.72rem;">Confirmado</span>
-                    {% endif %}
-                </p>
-                {% if user_delivery %}
-                    <p class="delivery-party-detail"><strong>Forma:</strong> {{ user_delivery.get_delivery_method_display }}</p>
-                    <p class="delivery-party-detail"><strong>Endereço:</strong> {{ user_delivery.street }}, {{ user_delivery.number }} — {{ user_delivery.city }}/{{ user_delivery.state }}</p>
-                    <p class="delivery-party-detail"><strong>Status:</strong> {{ user_delivery.get_status_display }}</p>
-                {% else %}
-                    <p class="delivery-party-detail" style="color: var(--text-muted);">
-                        <span class="material-icons" style="font-size: 15px; vertical-align: middle;">warning</span>
-                        Você ainda não informou os dados de envio.
-                    </p>
-                {% endif %}
-            </div>
-
-            <div class="delivery-party-card {% if other_delivery and other_delivery.status == 'confirmed' %}is-confirmed{% endif %}">
-                <p class="delivery-party-name">
-                    <span class="material-icons" style="font-size: 18px; color: var(--text-muted);">person_outline</span>
-                    Outro participante
-                    {% if other_delivery and other_delivery.status == 'confirmed' %}
-                        <span class="badge badge-approved" style="font-size: 0.72rem;">Confirmado</span>
-                    {% endif %}
-                </p>
-                {% if other_delivery %}
-                    <p class="delivery-party-detail"><strong>Forma:</strong> {{ other_delivery.get_delivery_method_display }}</p>
-                    <p class="delivery-party-detail"><strong>Endereço:</strong> {{ other_delivery.street }}, {{ other_delivery.number }} — {{ other_delivery.city }}/{{ other_delivery.state }}</p>
-                    <p class="delivery-party-detail"><strong>Status:</strong> {{ other_delivery.get_status_display }}</p>
-                {% else %}
-                    <p class="delivery-party-detail" style="color: var(--text-muted);">
-                        <span class="material-icons" style="font-size: 15px; vertical-align: middle;">schedule</span>
-                        O outro participante ainda não informou.
-                    </p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Form de entrega do usuário atual -->
-        <div class="delivery-form-card">
-            <h3><span class="material-icons">edit_location</span> Seus dados de envio</h3>
-            <form method="post" action="{% url 'trade_delivery' trade_request.id %}">
-                {% csrf_token %}
-                <div class="checkout-address-fields">
-                    <div class="form-row">
-                        <div class="form-group">
-                            {{ user_delivery_form.delivery_method.label_tag }}
-                            {{ user_delivery_form.delivery_method }}
-                        </div>
-                        <div class="form-group">
-                            {{ user_delivery_form.recipient_name.label_tag }}
-                            {{ user_delivery_form.recipient_name }}
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            {{ user_delivery_form.recipient_phone.label_tag }}
-                            {{ user_delivery_form.recipient_phone }}
-                        </div>
-                        <div class="form-group">
-                            {{ user_delivery_form.postal_code.label_tag }}
-                            {{ user_delivery_form.postal_code }}
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        {{ user_delivery_form.street.label_tag }}
-                        {{ user_delivery_form.street }}
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            {{ user_delivery_form.number.label_tag }}
-                            {{ user_delivery_form.number }}
-                        </div>
-                        <div class="form-group">
-                            {{ user_delivery_form.complement.label_tag }}
-                            {{ user_delivery_form.complement }}
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            {{ user_delivery_form.neighborhood.label_tag }}
-                            {{ user_delivery_form.neighborhood }}
-                        </div>
-                        <div class="form-group">
-                            {{ user_delivery_form.city.label_tag }}
-                            {{ user_delivery_form.city }}
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            {{ user_delivery_form.state.label_tag }}
-                            {{ user_delivery_form.state }}
-                        </div>
-                        <div class="form-group">
-                            {{ user_delivery_form.notes.label_tag }}
-                            {{ user_delivery_form.notes }}
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-top: 1rem;">
-                    <button type="submit" class="btn-secondary">
-                        <span class="material-icons">save</span> Salvar dados de envio
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-    {% endif %}
 
 </div>
 
@@ -534,4 +464,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 </script>
+{% include 'partials/address_masks.html' %}
 {% endblock %}

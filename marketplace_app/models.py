@@ -50,6 +50,7 @@ def validate_cnpj(value):
 class User(AbstractUser):
     is_store = models.BooleanField(default=False)
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
+    strikes = models.PositiveIntegerField(default=0, help_text='Advertências por violação de conteúdo')
 
     def __str__(self):
         return self.username
@@ -68,6 +69,8 @@ class StoreProfile(models.Model):
     commercial_cep = models.CharField(max_length=9, blank=True)
     commercial_address = models.CharField(max_length=255, blank=True)
     verified = models.BooleanField(default=False)
+    banner = models.ImageField(upload_to='store_banners/', blank=True, null=True)
+    description = models.TextField(blank=True, help_text='Descrição pública da loja')
 
     def clean(self):
         super().clean()
@@ -150,11 +153,20 @@ class Listing(models.Model):
     listing_type = models.CharField(max_length=10, choices=LISTING_TYPE_CHOICES)
     condition = models.CharField(max_length=10, choices=CONDITION_CHOICES)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=ACTIVE)
+    stock = models.PositiveIntegerField(default=1, help_text='Quantidade disponível em estoque')
 
     is_featured = models.BooleanField(default=False, help_text="Anúncio patrocinado")
     is_store_featured = models.BooleanField(default=False, help_text="Destaque para anúncios de loja")
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def is_sold_out(self):
+        return self.status == self.SOLD or self.stock <= 0
+
+    @property
+    def is_available(self):
+        return self.status == self.ACTIVE and self.stock > 0
 
     def clean(self):
         super().clean()
@@ -306,12 +318,25 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
+    PENDING_SHIPMENT = 'pending_shipment'
+    SHIPPED = 'shipped'
+    RECEIVED = 'received'
+
+    STATUS_CHOICES = [
+        (PENDING_SHIPMENT, 'Aguardando envio'),
+        (SHIPPED, 'Enviado'),
+        (RECEIVED, 'Recebido'),
+    ]
+
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
     seller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sale_items')
     title_snapshot = models.CharField(max_length=255)
     unit_price_snapshot = models.DecimalField(max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING_SHIPMENT)
+    shipped_at = models.DateTimeField(null=True, blank=True)
+    received_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f'{self.title_snapshot} em pedido #{self.order_id}'
@@ -469,10 +494,19 @@ class TradeRequest(models.Model):
 
 
 class TradeProposal(models.Model):
+    PAYER_REQUESTER = 'requester'
+    PAYER_OWNER = 'owner'
+
+    CASH_PAYER_CHOICES = [
+        (PAYER_REQUESTER, 'Quem solicitou a troca'),
+        (PAYER_OWNER, 'Dono do anúncio'),
+    ]
+
     trade_request = models.ForeignKey(TradeRequest, on_delete=models.CASCADE, related_name='proposals')
     proposer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trade_proposals_made')
     item_description = models.TextField(blank=True)
     cash_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    cash_payer = models.CharField(max_length=12, choices=CASH_PAYER_CHOICES, blank=True)
     note = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -483,6 +517,16 @@ class TradeProposal(models.Model):
             allowed_users = {self.trade_request.requester_id, self.trade_request.counterparty_id}
             if self.proposer_id not in allowed_users:
                 raise ValidationError({'proposer': 'Somente os participantes da negociação podem criar propostas.'})
+
+    def get_cash_payer_user(self):
+        """Retorna o usuário que paga o valor adicional, ou None se não há dinheiro."""
+        if not (self.cash_amount and self.cash_amount > 0):
+            return None
+        if not self.trade_request_id:
+            return None
+        if self.cash_payer == self.PAYER_OWNER:
+            return self.trade_request.counterparty
+        return self.trade_request.requester
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -617,3 +661,126 @@ class TradeDelivery(models.Model):
 
     def __str__(self):
         return f'Entrega de {self.user.username} para troca #{self.trade_request_id}'
+
+
+class ListingReport(models.Model):
+    PROHIBITED = 'prohibited'
+    OFF_TOPIC = 'off_topic'
+    SCAM = 'scam'
+    OTHER = 'other'
+
+    REASON_CHOICES = [
+        (PROHIBITED, 'Conteúdo ofensivo ou ilegal'),
+        (OFF_TOPIC, 'Fora do escopo (não é eletrônico/TI)'),
+        (SCAM, 'Golpe ou anúncio falso'),
+        (OTHER, 'Outro'),
+    ]
+
+    OPEN = 'open'
+    REVIEWED = 'reviewed'
+    DISMISSED = 'dismissed'
+
+    STATUS_CHOICES = [
+        (OPEN, 'Aberta'),
+        (REVIEWED, 'Resolvida'),
+        (DISMISSED, 'Descartada'),
+    ]
+
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='reports')
+    reporter = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reports_made')
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES, default=OTHER)
+    detail = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=OPEN)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Denúncia de "{self.listing.title}" ({self.get_status_display()})'
+
+
+class StoreVerificationRequest(models.Model):
+    PENDING = 'pending'
+    APPROVED = 'approved'
+    REJECTED = 'rejected'
+
+    STATUS_CHOICES = [
+        (PENDING, 'Em análise'),
+        (APPROVED, 'Aprovada'),
+        (REJECTED, 'Recusada'),
+    ]
+
+    store = models.ForeignKey(User, on_delete=models.CASCADE, related_name='verification_requests')
+    document = models.FileField(upload_to='verification_docs/')
+    message = models.TextField(blank=True, help_text='Mensagem da loja ao administrador')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING)
+    review_note = models.TextField(blank=True, help_text='Resposta do administrador')
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Verificação de {self.store.username} ({self.get_status_display()})'
+
+
+class Address(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='addresses')
+    label = models.CharField(max_length=60, blank=True, help_text='Ex: Casa, Trabalho')
+    recipient_name = models.CharField(max_length=255)
+    recipient_phone = models.CharField(max_length=20, blank=True)
+    postal_code = models.CharField(max_length=9)
+    street = models.CharField(max_length=255)
+    number = models.CharField(max_length=20)
+    complement = models.CharField(max_length=100, blank=True)
+    neighborhood = models.CharField(max_length=120)
+    city = models.CharField(max_length=120)
+    state = models.CharField(max_length=2)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-is_default', '-created_at']
+
+    def __str__(self):
+        return f'{self.label or self.street}, {self.number} - {self.city}/{self.state}'
+
+    def short(self):
+        return f'{self.street}, {self.number} — {self.city}/{self.state}'
+
+
+class Notification(models.Model):
+    SALE = 'sale'
+    PURCHASE = 'purchase'
+    TRADE = 'trade'
+    COMMENT = 'comment'
+    SYSTEM = 'system'
+
+    CATEGORY_CHOICES = [
+        (SALE, 'Venda'),
+        (PURCHASE, 'Compra'),
+        (TRADE, 'Troca'),
+        (COMMENT, 'Comentário'),
+        (SYSTEM, 'Sistema'),
+    ]
+
+    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default=SYSTEM)
+    title = models.CharField(max_length=255)
+    message = models.TextField(blank=True)
+    url = models.CharField(max_length=255, blank=True)
+    icon = models.CharField(max_length=40, default='notifications')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', 'is_read']),
+        ]
+
+    def __str__(self):
+        return f'Notificação para {self.recipient.username}: {self.title}'

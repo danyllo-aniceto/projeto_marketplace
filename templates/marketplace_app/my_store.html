@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Meu Catálogo — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">storefront</span> Meu Catálogo</h2>
+        <div class="page-header-actions">
+            <a href="{% url 'user_profile' user.username %}" class="btn-primary">Ver vitrine pública</a>
+            <a href="{% url 'criar_anuncio' %}" class="btn-secondary">Novo produto</a>
+        </div>
+    </div>
+
+    <!-- BANNER + IDENTIDADE -->
+    <div class="store-banner-wrap">
+        <div class="store-banner" {% if profile.banner %}style="background-image: linear-gradient(rgba(4,17,35,0.35), rgba(4,17,35,0.75)), url('{{ profile.banner.url }}');"{% endif %}>
+            <div class="store-banner-content">
+                <div class="store-banner-title">
+                    {{ profile.fantasy_name|default:profile.razao_social|default:user.username }}
+                    {% if profile.verified %}
+                        <span class="material-icons store-verified-tick" title="Loja verificada">verified</span>
+                    {% endif %}
+                </div>
+                {% if profile.verified %}
+                    <span class="badge badge-approved">Loja verificada</span>
+                {% else %}
+                    <a href="{% url 'store_verification' %}" class="badge badge-info" style="text-decoration:none;">Solicitar verificação</a>
+                {% endif %}
+                {% if profile.description %}
+                    <p class="store-banner-desc">{{ profile.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- INSIGHTS -->
+    <div class="store-insights">
+        <div class="store-insight-card">
+            <span class="material-icons">inventory_2</span>
+            <strong>{{ insights.total_products }}</strong>
+            <span>Produtos</span>
+        </div>
+        <div class="store-insight-card">
+            <span class="material-icons">check_circle</span>
+            <strong>{{ insights.active_products }}</strong>
+            <span>Ativos</span>
+        </div>
+        <div class="store-insight-card">
+            <span class="material-icons">remove_shopping_cart</span>
+            <strong>{{ insights.sold_out }}</strong>
+            <span>Esgotados</span>
+        </div>
+        <div class="store-insight-card">
+            <span class="material-icons">warehouse</span>
+            <strong>{{ insights.total_stock }}</strong>
+            <span>Em estoque</span>
+        </div>
+        <div class="store-insight-card">
+            <span class="material-icons">sell</span>
+            <strong>{{ insights.sales_count }}</strong>
+            <span>Vendas concluídas</span>
+        </div>
+        <div class="store-insight-card highlight">
+            <span class="material-icons">payments</span>
+            <strong>R$ {{ insights.revenue|floatformat:2 }}</strong>
+            <span>Receita</span>
+        </div>
+    </div>
+
+    <!-- EDITAR IDENTIDADE -->
+    <details class="store-branding-editor">
+        <summary><span class="material-icons">edit</span> Editar banner e descrição</summary>
+        <form method="post" enctype="multipart/form-data" class="listing-form-card" style="margin-top: 0.85rem;">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Banner do catálogo</label>
+                <div class="image-upload-zone" id="banner-zone" role="button" tabindex="0"
+                     onclick="document.getElementById('banner-input').click()">
+                    <span class="material-icons">image</span>
+                    <p class="upload-title">Clique para enviar uma imagem de banner</p>
+                    <p class="upload-subtitle">Recomendado: 1200×300px</p>
+                    <p class="upload-count" id="banner-name"></p>
+                </div>
+                <input type="file" name="banner" id="banner-input" accept="image/*" style="display:none;">
+                {% if profile.banner %}
+                <label class="remember-toggle" style="margin-top:0.6rem;">
+                    <input type="checkbox" name="remove_banner" value="1">
+                    <span class="remember-box"><span class="material-icons">check</span></span>
+                    <span class="remember-label">Remover banner atual</span>
+                </label>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label for="store-desc">Descrição da loja</label>
+                <textarea name="description" id="store-desc" class="form-control" rows="4" placeholder="Conte sobre sua loja, especialidades, garantias...">{{ profile.description }}</textarea>
+            </div>
+            <button type="submit" class="btn-secondary" style="min-width: 160px;">Salvar</button>
+        </form>
+    </details>
+
+    <!-- CATÁLOGO -->
+    <h3 class="section-title" style="font-size: 1.25rem; margin: 2rem 0 1rem;">
+        <span class="material-icons">grid_view</span> Produtos
+    </h3>
+
+    {% if listings %}
+        <div class="home-products-grid">
+            {% for anuncio in listings %}
+            <div class="my-listing-card {% if anuncio.is_sold_out %}is-sold-out{% endif %}">
+                <div class="product-image">
+                    {% if anuncio.images.all %}
+                        <img src="{{ anuncio.images.first.image.url }}" alt="{{ anuncio.title }}">
+                    {% else %}
+                        <div class="product-image-placeholder"><span class="material-icons">devices</span></div>
+                    {% endif %}
+                    {% if anuncio.is_sold_out %}<span class="sold-out-overlay">Esgotado</span>{% endif %}
+                </div>
+                <div class="my-listing-info">
+                    <div class="my-listing-badges">
+                        {% if anuncio.is_sold_out %}
+                            <span class="badge badge-rejected">Esgotado</span>
+                        {% else %}
+                            <span class="badge badge-approved">Ativo</span>
+                        {% endif %}
+                        <span class="my-listing-chip"><span class="material-icons">inventory</span> {{ anuncio.stock }}</span>
+                    </div>
+                    <h3 class="my-listing-title">{{ anuncio.title }}</h3>
+                    {% if anuncio.price %}<p class="my-listing-price">R$ {{ anuncio.price|floatformat:2 }}</p>{% endif %}
+                    <div class="my-listing-spacer"></div>
+                    <div class="my-listing-actions">
+                        <a href="{% url 'edit_listing' anuncio.id %}" class="btn-primary">Editar / Estoque</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <span class="material-icons empty-icon">inventory_2</span>
+            <h3>Catálogo vazio</h3>
+            <p>Cadastre seus produtos. Quando esgotarem, basta repor o estoque — sem recriar o anúncio.</p>
+            <a href="{% url 'criar_anuncio' %}" class="btn-secondary" style="margin-top: 0.5rem;">Cadastrar produto</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('banner-input');
+    const name = document.getElementById('banner-name');
+    if (input && name) {
+        input.addEventListener('change', () => { name.textContent = input.files.length ? input.files[0].name : ''; });
+    }
+});
+</script>
+{% endblock %}

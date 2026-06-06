@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}Verificação da loja — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">verified</span> Verificação da loja</h2>
+    </div>
+
+    <div style="max-width: 720px;">
+
+        {% if profile.verified %}
+        <div class="verify-status-card is-verified">
+            <span class="material-icons">verified</span>
+            <div>
+                <strong>Sua loja é verificada</strong>
+                <p>Você exibe o selo de loja verificada e tem prioridade no hub de lojas.</p>
+            </div>
+        </div>
+        {% elif pending %}
+        <div class="verify-status-card is-pending">
+            <span class="material-icons">hourglass_top</span>
+            <div>
+                <strong>Solicitação em análise</strong>
+                <p>Enviada em {{ pending.created_at|date:'d/m/Y H:i' }}. Você será notificado quando houver uma resposta.</p>
+            </div>
+        </div>
+        {% else %}
+        <div class="listing-form-card">
+            <h3 style="color: var(--accent-cyan); font-size: 1.05rem; margin: 0 0 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <span class="material-icons">workspace_premium</span> Solicitar selo de verificação
+            </h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin: 0 0 1.25rem;">
+                Envie um documento que comprove a idoneidade da loja (ex: cartão CNPJ, contrato social).
+                Nossa equipe analisa e, se aprovado, sua loja recebe o selo verificado.
+            </p>
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Documento comprobatório <span style="color: var(--danger-color);">*</span></label>
+                    <div class="image-upload-zone" id="doc-zone" role="button" tabindex="0"
+                         onclick="document.getElementById('doc-input').click()"
+                         onkeydown="if(event.key==='Enter'||event.key===' '){document.getElementById('doc-input').click()}">
+                        <span class="material-icons">upload_file</span>
+                        <p class="upload-title">Clique para selecionar o documento</p>
+                        <p class="upload-subtitle">PDF, JPG ou PNG</p>
+                        <p class="upload-count" id="doc-name"></p>
+                    </div>
+                    <input type="file" name="document" id="doc-input" accept=".pdf,image/*" style="display:none;" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="vmsg">Mensagem (opcional)</label>
+                    <textarea name="message" id="vmsg" class="form-control" rows="3" placeholder="Conte um pouco sobre a sua loja para a análise."></textarea>
+                </div>
+
+                <button type="submit" class="btn-secondary" style="min-width: 200px;">Enviar solicitação</button>
+            </form>
+        </div>
+        {% endif %}
+
+        {% if history %}
+        <div class="summary-card" style="margin-top: 1.5rem;">
+            <h3><span class="material-icons">history</span> Histórico de solicitações</h3>
+            {% for req in history %}
+            <div class="info-row">
+                <span class="material-icons">description</span>
+                <strong>{{ req.created_at|date:'d/m/Y H:i' }}</strong>
+                <span>
+                    {% if req.status == 'approved' %}<span class="badge badge-approved">Aprovada</span>
+                    {% elif req.status == 'rejected' %}<span class="badge badge-rejected">Recusada</span>
+                    {% else %}<span class="badge badge-pending">Em análise</span>{% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('doc-input');
+    const name = document.getElementById('doc-name');
+    const zone = document.getElementById('doc-zone');
+    if (input && name) {
+        input.addEventListener('change', () => {
+            name.textContent = input.files.length ? input.files[0].name : '';
+        });
+    }
+    if (zone && input) {
+        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+        zone.addEventListener('drop', e => {
+            e.preventDefault(); zone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length) {
+                input.files = e.dataTransfer.files;
+                name.textContent = input.files[0].name;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

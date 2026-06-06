@@ -10,7 +10,22 @@
         <span class="breadcrumb-current">{{ profile_user.username }}</span>
     </nav>
 
-    <h2 class="section-title"><span class="material-icons">person</span> Perfil de {{ profile_user.username }}</h2>
+    {% if is_store_view %}
+        <div class="store-banner-wrap">
+            <div class="store-banner" {% if profile.banner %}style="background-image: linear-gradient(rgba(4,17,35,0.35), rgba(4,17,35,0.75)), url('{{ profile.banner.url }}');"{% endif %}>
+                <div class="store-banner-content">
+                    <div class="store-banner-title">
+                        {{ profile.fantasy_name|default:profile.razao_social|default:profile_user.username }}
+                        {% if profile.verified %}<span class="material-icons store-verified-tick" title="Loja verificada">verified</span>{% endif %}
+                    </div>
+                    {% if profile.verified %}<span class="badge badge-approved">Loja verificada</span>{% endif %}
+                    {% if profile.description %}<p class="store-banner-desc">{{ profile.description }}</p>{% endif %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <h2 class="section-title"><span class="material-icons">person</span> Perfil de {{ profile_user.username }}</h2>
+    {% endif %}
 
     <div class="profile-public-grid">
         <div class="profile-public-card">
@@ -54,24 +69,34 @@
         </div>
 
         <div class="profile-form-card">
-            <h3>Anúncios ativos</h3>
+            <h3>{% if is_store_view %}<span class="material-icons" style="vertical-align:middle;color:var(--accent-cyan);">storefront</span> Catálogo da loja{% else %}Anúncios ativos{% endif %}</h3>
             {% if listings %}
-                <div class="products-grid">
+                <div class="home-products-grid">
                     {% for anuncio in listings %}
-                        <div class="product-card">
+                        <div class="home-product-card {% if anuncio.is_sold_out %}is-sold-out{% endif %}">
                             <div class="product-image">
                                 {% if anuncio.images.all %}
                                     <img src="{{ anuncio.images.first.image.url }}" alt="{{ anuncio.title }}">
                                 {% else %}
                                     <div class="product-image-placeholder"><span class="material-icons">devices</span></div>
                                 {% endif %}
+                                {% if anuncio.is_sold_out %}<span class="sold-out-overlay">Esgotado</span>{% endif %}
                             </div>
-                            <div class="product-info">
-                                <h3 class="product-title">{{ anuncio.title }}</h3>
-                                <p class="product-description">{{ anuncio.description|truncatechars:100 }}</p>
-                                <div class="product-price">{% if anuncio.listing_type == 'trade' or anuncio.price is None %}Troca{% else %}R$ {{ anuncio.price|floatformat:2 }}{% endif %}</div>
-                                <div class="product-actions">
-                                    <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details"><span class="material-icons">visibility</span> Ver Detalhes</a>
+                            <div class="home-product-info">
+                                <span class="listing-type-badge type-{{ anuncio.listing_type }}">
+                                    {% if anuncio.listing_type == 'sale' %}Venda{% elif anuncio.listing_type == 'trade' %}Troca{% else %}Venda e Troca{% endif %}
+                                </span>
+                                <h3 class="home-product-title">{{ anuncio.title }}</h3>
+                                <div class="home-product-price-block">
+                                    {% if anuncio.listing_type == 'trade' or anuncio.price is None %}
+                                        <span class="home-product-price-trade"><span class="material-icons">compare_arrows</span> Negociável</span>
+                                    {% else %}
+                                        <span class="home-product-price-value">R$ {{ anuncio.price|floatformat:2 }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="home-product-spacer"></div>
+                                <div class="home-product-actions">
+                                    <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details">Ver Detalhes</a>
                                 </div>
                             </div>
                         </div>
@@ -80,8 +105,8 @@
             {% else %}
                 <div class="empty-state">
                     <span class="material-icons empty-icon">inventory_2</span>
-                    <h3>Nenhum anúncio ativo</h3>
-                    <p>Este usuário ainda não publicou anúncios.</p>
+                    <h3>{% if is_store_view %}Catálogo vazio{% else %}Nenhum anúncio ativo{% endif %}</h3>
+                    <p>{% if is_store_view %}Esta loja ainda não cadastrou produtos.{% else %}Este usuário ainda não publicou anúncios.{% endif %}</p>
                 </div>
             {% endif %}
 

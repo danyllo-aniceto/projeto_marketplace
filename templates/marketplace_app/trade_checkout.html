@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Checkout da troca #{{ trade_request.id }} — Tech Hub{% endblock %}
+{% block title %}Finalizar troca #{{ trade_request.id }} — Tech Hub{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -12,25 +12,38 @@
         <span class="material-icons">chevron_right</span>
         <a href="{% url 'trade_request_detail' trade_request.id %}">Negociação #{{ trade_request.id }}</a>
         <span class="material-icons">chevron_right</span>
-        <span class="breadcrumb-current">Checkout da troca</span>
+        <span class="breadcrumb-current">Finalizar</span>
     </nav>
 
     <div class="page-header">
-        <h2 class="section-title"><span class="material-icons">swap_horiz</span> Checkout da troca</h2>
-        <div class="page-header-actions">
-            <span class="badge badge-approved" style="font-size: 0.88rem; padding: 0.4rem 1rem;">
-                <span class="material-icons" style="font-size: 14px;">check_circle</span>
-                {{ trade_request.get_status_display }}
-            </span>
+        <h2 class="section-title"><span class="material-icons">swap_horiz</span> Finalizar troca</h2>
+    </div>
+
+    <!-- STEPPER DE 3 ETAPAS -->
+    <div class="checkout-steps" style="max-width: 640px; margin: 0 auto 2rem;">
+        <div class="checkout-step {% if phase == 'address' %}active{% else %}done{% endif %}">
+            <div class="checkout-step-num">{% if phase != 'address' %}<span class="material-icons" style="font-size:14px;">check</span>{% else %}1{% endif %}</div>
+            <span>Endereços</span>
+        </div>
+        <div class="checkout-step-connector {% if phase != 'address' %}done{% endif %}"></div>
+        {% if payment_needed %}
+        <div class="checkout-step {% if phase == 'payment' %}active{% elif phase == 'confirm' or phase == 'done' %}done{% endif %}">
+            <div class="checkout-step-num">{% if phase == 'confirm' or phase == 'done' %}<span class="material-icons" style="font-size:14px;">check</span>{% else %}2{% endif %}</div>
+            <span>Pagamento</span>
+        </div>
+        <div class="checkout-step-connector {% if phase == 'confirm' or phase == 'done' %}done{% endif %}"></div>
+        {% endif %}
+        <div class="checkout-step {% if phase == 'confirm' %}active{% elif phase == 'done' %}done{% endif %}">
+            <div class="checkout-step-num">{% if phase == 'done' %}<span class="material-icons" style="font-size:14px;">check</span>{% else %}{% if payment_needed %}3{% else %}2{% endif %}{% endif %}</div>
+            <span>Confirmação</span>
         </div>
     </div>
 
     <div class="trade-checkout-grid">
 
-        <!-- ======== COLUNA ESQUERDA: RESUMO + STATUS ======== -->
+        <!-- ======== COLUNA ESQUERDA: RESUMO + PARTICIPANTES ======== -->
         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
 
-            <!-- Resumo da troca -->
             <div class="summary-card">
                 <h3><span class="material-icons">handshake</span> Resumo da troca</h3>
                 <div style="display: flex; flex-direction: column; gap: 0;">
@@ -39,367 +52,258 @@
                         <strong>Anúncio</strong>
                         <span>{{ trade_request.listing.title }}</span>
                     </div>
+                    {% if fulfillment.agreed_proposal.item_description %}
                     <div class="info-row">
-                        <span class="material-icons">person</span>
-                        <strong>Solicitante</strong>
-                        <span>{{ trade_request.requester.username }}</span>
+                        <span class="material-icons">inventory_2</span>
+                        <strong>Item oferecido</strong>
+                        <span>{{ fulfillment.agreed_proposal.item_description }}</span>
                     </div>
+                    {% endif %}
+                    {% if payment_needed %}
                     <div class="info-row">
-                        <span class="material-icons">store</span>
-                        <strong>Contraparte</strong>
-                        <span>{{ trade_request.counterparty.username }}</span>
+                        <span class="material-icons">payments</span>
+                        <strong>Valor adicional</strong>
+                        <span style="color: var(--accent-cyan); font-weight: 700;">R$ {{ fulfillment.payment_amount|floatformat:2 }}</span>
                     </div>
+                    {% else %}
                     <div class="info-row">
-                        <span class="material-icons">attach_money</span>
-                        <strong>Valor acordado</strong>
-                        <span style="color: var(--accent-cyan); font-weight: 700; font-size: 1.05rem;">
-                            R$ {{ fulfillment.payment_amount|floatformat:2 }}
-                        </span>
-                    </div>
-                    {% if fulfillment.agreed_proposal %}
-                    <div class="info-row">
-                        <span class="material-icons">compare_arrows</span>
-                        <strong>Proposta aceita</strong>
-                        <span style="color: var(--text-muted);">{{ fulfillment.agreed_proposal.item_description|default:'—' }}</span>
+                        <span class="material-icons">volunteer_activism</span>
+                        <strong>Valor adicional</strong>
+                        <span style="color: var(--text-muted);">Sem dinheiro envolvido</span>
                     </div>
                     {% endif %}
                 </div>
+
+                {% if payment_needed %}
+                <div class="trade-payer-note">
+                    <span class="material-icons">info</span>
+                    <span>
+                        {% if is_payer %}
+                            <strong>Você</strong> paga R$ {{ fulfillment.payment_amount|floatformat:2 }} a mais nesta troca.
+                        {% else %}
+                            <strong>{{ payer.username }}</strong> paga R$ {{ fulfillment.payment_amount|floatformat:2 }} a mais. Você não precisa pagar nada.
+                        {% endif %}
+                    </span>
+                </div>
+                {% endif %}
             </div>
 
-            <!-- Status das entregas: ambas as partes -->
+            <!-- Participantes e status -->
             <div class="summary-card">
-                <h3><span class="material-icons">local_shipping</span> Status das entregas</h3>
+                <h3><span class="material-icons">groups</span> Participantes</h3>
                 <p style="color: var(--text-muted); font-size: 0.85rem; margin: -0.25rem 0 0.85rem; line-height: 1.5;">
-                    A troca só é finalizada quando os dois participantes confirmam a entrega.
+                    Os dois recebem algo na troca, então ambos cadastram o endereço e confirmam a entrega.
                 </p>
 
                 <div class="trade-delivery-grid" style="margin-bottom: 0;">
-                    <div class="delivery-party-card {% if user_delivery_confirmed %}is-confirmed{% endif %}">
+                    <!-- Você -->
+                    <div class="delivery-party-card {% if user_confirmed %}is-confirmed{% endif %}">
                         <p class="delivery-party-name">
                             <span class="material-icons" style="font-size: 17px; color: var(--accent-cyan);">person</span>
                             Você
-                            {% if user_delivery_confirmed %}
-                                <span class="badge badge-approved" style="font-size: 0.7rem;">Confirmado</span>
-                            {% else %}
-                                <span class="badge badge-pending" style="font-size: 0.7rem;">Pendente</span>
-                            {% endif %}
+                            {% if user_confirmed %}<span class="badge badge-approved" style="font-size: 0.68rem;">Entrega confirmada</span>
+                            {% elif user_has_addr %}<span class="badge badge-info" style="font-size: 0.68rem;">Endereço ok</span>
+                            {% else %}<span class="badge badge-pending" style="font-size: 0.68rem;">Sem endereço</span>{% endif %}
                         </p>
-                        {% if user_delivery %}
-                            <p class="delivery-party-detail"><strong>Endereço:</strong> {{ user_delivery.street }}, {{ user_delivery.number }} — {{ user_delivery.city }}/{{ user_delivery.state }}</p>
-                            <p class="delivery-party-detail"><strong>Status:</strong> {{ user_delivery.get_status_display }}</p>
+                        {% if user_has_addr %}
+                            <p class="delivery-party-detail">{{ user_delivery.street }}, {{ user_delivery.number }} — {{ user_delivery.city }}/{{ user_delivery.state }}</p>
                         {% else %}
-                            <p class="delivery-party-detail" style="color: var(--text-muted);">Não informado ainda.</p>
+                            <p class="delivery-party-detail" style="color: var(--text-muted);">Cadastre seu endereço.</p>
                         {% endif %}
                     </div>
-
-                    <div class="delivery-party-card {% if other_delivery_confirmed %}is-confirmed{% endif %}">
+                    <!-- Outro -->
+                    <div class="delivery-party-card {% if other_confirmed %}is-confirmed{% endif %}">
                         <p class="delivery-party-name">
                             <span class="material-icons" style="font-size: 17px; color: var(--text-muted);">person_outline</span>
-                            Outro participante
-                            {% if other_delivery_confirmed %}
-                                <span class="badge badge-approved" style="font-size: 0.7rem;">Confirmado</span>
-                            {% else %}
-                                <span class="badge badge-pending" style="font-size: 0.7rem;">Pendente</span>
-                            {% endif %}
+                            {{ other_user.username }}
+                            {% if other_confirmed %}<span class="badge badge-approved" style="font-size: 0.68rem;">Entrega confirmada</span>
+                            {% elif other_has_addr %}<span class="badge badge-info" style="font-size: 0.68rem;">Endereço ok</span>
+                            {% else %}<span class="badge badge-pending" style="font-size: 0.68rem;">Sem endereço</span>{% endif %}
                         </p>
-                        {% if other_delivery %}
-                            <p class="delivery-party-detail"><strong>Endereço:</strong> {{ other_delivery.street }}, {{ other_delivery.number }} — {{ other_delivery.city }}/{{ other_delivery.state }}</p>
-                            <p class="delivery-party-detail"><strong>Status:</strong> {{ other_delivery.get_status_display }}</p>
+                        {% if other_has_addr %}
+                            <p class="delivery-party-detail">{{ other_delivery.street }}, {{ other_delivery.number }} — {{ other_delivery.city }}/{{ other_delivery.state }}</p>
                         {% else %}
-                            <p class="delivery-party-detail" style="color: var(--text-muted);">Não informado ainda.</p>
+                            <p class="delivery-party-detail" style="color: var(--text-muted);">Aguardando cadastro.</p>
                         {% endif %}
                     </div>
                 </div>
             </div>
 
-            <a href="{% url 'trade_request_detail' trade_request.id %}" class="btn-details">
-                <span class="material-icons">arrow_back</span> Voltar para a negociação
-            </a>
-
+            <a href="{% url 'trade_request_detail' trade_request.id %}" class="btn-details">Voltar à negociação</a>
         </div>
 
-        <!-- ======== COLUNA DIREITA: FORM + CONFIRMAÇÃO ======== -->
+        <!-- ======== COLUNA DIREITA: AÇÃO DA ETAPA ATUAL ======== -->
         <div class="delivery-form-card">
 
-            <!-- Indicador de passo -->
-            <div class="checkout-steps" style="margin-bottom: 1.5rem;">
-                <div class="checkout-step {% if not show_qr_simulation %}active{% else %}done{% endif %}">
-                    <div class="checkout-step-num">
-                        {% if show_qr_simulation %}<span class="material-icons" style="font-size: 14px;">check</span>{% else %}1{% endif %}
-                    </div>
-                    <span>Dados de envio</span>
-                </div>
-                <div class="checkout-step-connector {% if show_qr_simulation %}done{% endif %}"></div>
-                <div class="checkout-step {% if show_qr_simulation %}active{% endif %}">
-                    <div class="checkout-step-num">2</div>
-                    <span>Confirmação</span>
-                </div>
+            {% if phase == 'done' %}
+            <!-- ETAPA FINAL: CONCLUÍDO -->
+            <div style="text-align: center; padding: 1rem 0;">
+                <span class="material-icons" style="font-size: 3.5rem; color: var(--success-color);">verified</span>
+                <h3 style="justify-content: center; border: none; color: var(--text-white); margin-top: 0.5rem;">Troca concluída!</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                    Ambos confirmaram a entrega{% if payment_needed %} e o pagamento foi registrado{% endif %}.
+                    O registro está disponível no seu histórico.
+                </p>
+                <a href="{% url 'history' %}?tab=sent-trades" class="btn-secondary" style="width: 100%; margin-top: 0.5rem;">Ver no histórico</a>
             </div>
 
-            <h3 style="color: var(--accent-cyan); font-size: 1rem; margin: 0 0 1.1rem; display: flex; align-items: center; gap: 0.45rem;">
-                <span class="material-icons">edit_location</span> Seus dados de envio
-            </h3>
-
-            {% if form.errors %}
-            <div class="form-error-summary" style="margin-bottom: 1rem;">
-                <p><strong>Corrija os erros abaixo:</strong></p>
-                <ul>
-                    {% for field in form %}
-                        {% for error in field.errors %}
-                            <li>{{ field.label }}: {{ error }}</li>
-                        {% endfor %}
-                    {% endfor %}
-                    {% for error in form.non_field_errors %}
-                        <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
+            {% elif phase == 'address' %}
+            <!-- ETAPA 1: ENDEREÇO -->
+            <div class="checkout-section-label" style="margin-bottom: 0.25rem;">
+                <span class="material-icons">location_on</span> Etapa 1 — Endereço de entrega
             </div>
-            {% endif %}
 
-            <form method="post">
-                {% csrf_token %}
-
-                <!-- PAGAMENTO -->
-                {% if fulfillment.payment_amount > 0 %}
-                <div style="margin-bottom: 1.1rem;">
-                    <p class="checkout-section-label">
-                        <span class="material-icons">payments</span> Forma de pagamento
-                    </p>
-                    <div class="checkout-method-cards" id="tc-payment-cards">
-                        <div class="checkout-method-card {% if form.payment_method.value == 'pix' %}selected{% endif %}" data-group="tc-payment" data-value="pix" role="button" tabindex="0">
-                            <span class="material-icons">qr_code_2</span>
-                            <strong>PIX</strong>
-                            <p>Instantâneo</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.payment_method.value == 'credit_card' %}selected{% endif %}" data-group="tc-payment" data-value="credit_card" role="button" tabindex="0">
-                            <span class="material-icons">credit_card</span>
-                            <strong>Crédito</strong>
-                            <p>Parcelável</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.payment_method.value == 'debit_card' %}selected{% endif %}" data-group="tc-payment" data-value="debit_card" role="button" tabindex="0">
-                            <span class="material-icons">payment</span>
-                            <strong>Débito</strong>
-                            <p>À vista</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.payment_method.value == 'bank_transfer' %}selected{% endif %}" data-group="tc-payment" data-value="bank_transfer" role="button" tabindex="0">
-                            <span class="material-icons">account_balance</span>
-                            <strong>Transferência</strong>
-                            <p>TED/DOC</p>
-                        </div>
-                    </div>
-                    <div style="display:none;">{{ form.payment_method }}</div>
-                    {% if form.payment_method.errors %}<div class="field-error">{{ form.payment_method.errors }}</div>{% endif %}
-                </div>
-                {% endif %}
-
-                <!-- ENTREGA -->
-                <div style="margin-bottom: 1.1rem;">
-                    <p class="checkout-section-label">
-                        <span class="material-icons">local_shipping</span> Forma de entrega
-                    </p>
-                    <div class="checkout-method-cards" id="tc-delivery-cards">
-                        <div class="checkout-method-card {% if form.delivery_method.value == 'pickup' %}selected{% endif %}" data-group="tc-delivery" data-value="pickup" role="button" tabindex="0">
-                            <span class="material-icons">store</span>
-                            <strong>Retirada</strong>
-                            <p>Presencial</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.delivery_method.value == 'seller_shipping' %}selected{% endif %}" data-group="tc-delivery" data-value="seller_shipping" role="button" tabindex="0">
-                            <span class="material-icons">local_shipping</span>
-                            <strong>Envio</strong>
-                            <p>Pelo remetente</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.delivery_method.value == 'platform_shipping' %}selected{% endif %}" data-group="tc-delivery" data-value="platform_shipping" role="button" tabindex="0">
-                            <span class="material-icons">inventory_2</span>
-                            <strong>Correios</strong>
-                            <p>Plataforma</p>
-                        </div>
-                        <div class="checkout-method-card {% if form.delivery_method.value == 'to_agree' or not form.delivery_method.value %}selected{% endif %}" data-group="tc-delivery" data-value="to_agree" role="button" tabindex="0">
-                            <span class="material-icons">handshake</span>
-                            <strong>A combinar</strong>
-                            <p>Entre as partes</p>
-                        </div>
-                    </div>
-                    <div style="display:none;">{{ form.delivery_method }}</div>
-                    {% if form.delivery_method.errors %}<div class="field-error">{{ form.delivery_method.errors }}</div>{% endif %}
+            {% if user_has_addr and not other_has_addr %}
+                <!-- Já salvei; aguardando o outro -->
+                <div class="waiting-message" style="border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.04); color: var(--text-gray); margin-top: 0.85rem;">
+                    <span class="material-icons" style="color: var(--success-color);">check_circle</span>
+                    <span>Seu endereço foi salvo. Aguardando <strong>{{ other_user.username }}</strong> cadastrar o endereço dele para avançar.</span>
                 </div>
 
-                <!-- ENDEREÇO -->
-                <div id="tc-address-section">
-                    <p class="checkout-section-label" style="margin-bottom: 0.75rem;">
-                        <span class="material-icons">location_on</span> Endereço de envio
-                    </p>
-                    <div class="checkout-address-fields">
-                        <div class="form-row">
-                            <div class="form-group">
-                                {{ form.recipient_name.label_tag }}
-                                {{ form.recipient_name }}
-                                {% if form.recipient_name.errors %}<div class="field-error">{{ form.recipient_name.errors }}</div>{% endif %}
-                            </div>
-                            <div class="form-group">
-                                {{ form.recipient_phone.label_tag }}
-                                {{ form.recipient_phone }}
-                                {% if form.recipient_phone.errors %}<div class="field-error">{{ form.recipient_phone.errors }}</div>{% endif %}
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                {{ form.postal_code.label_tag }}
-                                {{ form.postal_code }}
-                                {% if form.postal_code.errors %}<div class="field-error">{{ form.postal_code.errors }}</div>{% endif %}
-                            </div>
-                            <div class="form-group">
-                                {{ form.state.label_tag }}
-                                {{ form.state }}
-                                {% if form.state.errors %}<div class="field-error">{{ form.state.errors }}</div>{% endif %}
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            {{ form.street.label_tag }}
-                            {{ form.street }}
-                            {% if form.street.errors %}<div class="field-error">{{ form.street.errors }}</div>{% endif %}
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                {{ form.number.label_tag }}
-                                {{ form.number }}
-                                {% if form.number.errors %}<div class="field-error">{{ form.number.errors }}</div>{% endif %}
-                            </div>
-                            <div class="form-group">
-                                {{ form.complement.label_tag }}
-                                {{ form.complement }}
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                {{ form.neighborhood.label_tag }}
-                                {{ form.neighborhood }}
-                                {% if form.neighborhood.errors %}<div class="field-error">{{ form.neighborhood.errors }}</div>{% endif %}
-                            </div>
-                            <div class="form-group">
-                                {{ form.city.label_tag }}
-                                {{ form.city }}
-                                {% if form.city.errors %}<div class="field-error">{{ form.city.errors }}</div>{% endif %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- OBSERVAÇÕES -->
-                <details class="checkout-notes-toggle">
-                    <summary>
-                        <span class="material-icons">add_comment</span>
-                        Observações
-                        <span class="checkout-notes-optional">(opcional)</span>
-                    </summary>
-                    <div class="checkout-notes-content">
-                        <div class="form-group" style="margin: 0;">
-                            {{ form.notes }}
-                        </div>
+                <details style="margin-top: 1rem;">
+                    <summary style="font-size: 0.82rem; color: var(--text-muted); cursor: pointer;">Editar meu endereço</summary>
+                    <div style="margin-top: 0.75rem;">
+                        {% include 'partials/trade_address_form.html' %}
                     </div>
                 </details>
+            {% else %}
+                <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0 0 1rem; line-height: 1.5;">
+                    Informe onde você quer receber o item da troca.
+                    {% if not other_has_addr %}O outro participante também precisa cadastrar o dele.{% else %}
+                    <strong style="color: var(--text-gray);">{{ other_user.username }}</strong> já cadastrou o endereço dele.{% endif %}
+                </p>
+                {% include 'partials/trade_address_form.html' with show_picker=True %}
+            {% endif %}
 
-                {% if show_qr_simulation %}
+            {% elif phase == 'payment' %}
+            <!-- ETAPA 2: PAGAMENTO (apenas o pagador) -->
+            <div class="checkout-section-label" style="margin-bottom: 0.25rem;">
+                <span class="material-icons">payments</span> Etapa 2 — Pagamento do valor adicional
+            </div>
 
-                    <!-- Aviso de simulação -->
-                    <div class="simulation-notice" style="margin-bottom: 1.25rem;">
-                        <span class="material-icons">school</span>
-                        <div>
-                            <strong>Ambiente acadêmico — simulação</strong>
-                            <p>Nenhum pagamento real será processado. Este QR Code é apenas ilustrativo.</p>
-                        </div>
+            {% if is_payer %}
+                <div class="simulation-notice" style="margin: 0.75rem 0 1rem;">
+                    <span class="material-icons">school</span>
+                    <div>
+                        <strong>Você paga R$ {{ fulfillment.payment_amount|floatformat:2 }}</strong>
+                        <p>Ambiente acadêmico — pagamento simulado. Nenhuma cobrança real é feita.</p>
                     </div>
+                </div>
 
-                    <!-- QR Code -->
-                    <div class="checkout-qr-display">
-                        <div class="checkout-qr-grid">
-                            {% for row in qr_pattern %}
-                                {% for cell in row %}
-                                    <div style="background: {% if cell == '1' %}#111827{% else %}#ffffff{% endif %}; border-radius: 1px;"></div>
-                                {% endfor %}
-                            {% endfor %}
-                        </div>
-                        <div class="checkout-qr-token">
-                            Referência: <strong>{{ qr_token }}</strong>
-                        </div>
+                <div class="checkout-qr-display">
+                    <div class="checkout-qr-grid">
+                        {% for row in qr_pattern %}{% for cell in row %}<div style="background: {% if cell == '1' %}#111827{% else %}#ffffff{% endif %}; border-radius: 1px;"></div>{% endfor %}{% endfor %}
                     </div>
+                    <div class="checkout-qr-token">Referência: <strong>{{ qr_token }}</strong></div>
+                </div>
 
-                {% endif %}
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="confirm_payment">
+                    <div class="form-group" style="margin-bottom: 0.85rem;">
+                        <label>Forma de pagamento</label>
+                        <select name="payment_method" class="form-control">
+                            <option value="pix">PIX</option>
+                            <option value="credit_card">Cartão de crédito</option>
+                            <option value="debit_card">Cartão de débito</option>
+                            <option value="bank_transfer">Transferência bancária</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-secondary" style="width: 100%; padding: 0.9rem;">
+                        Confirmar pagamento de R$ {{ fulfillment.payment_amount|floatformat:2 }}
+                    </button>
+                </form>
+            {% else %}
+                <div class="waiting-message" style="margin-top: 0.85rem;">
+                    <span class="material-icons">hourglass_top</span>
+                    <span>Aguardando <strong>{{ payer.username }}</strong> pagar o valor adicional de R$ {{ fulfillment.payment_amount|floatformat:2 }}. Você não paga nada nesta troca.</span>
+                </div>
+            {% endif %}
 
-                <!-- BOTÃO DE AÇÃO -->
-                <div style="margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;">
-                    {% if show_qr_simulation %}
-                        {% if user_delivery_confirmed and not can_finalize_trade %}
-                            <button type="submit" class="btn-secondary" style="width: 100%;" disabled>
-                                <span class="material-icons">check_circle</span> Você já confirmou sua parte
-                            </button>
-                        {% else %}
-                            <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">
-                                <span class="material-icons">check_circle</span> Confirmar minha parte
-                            </button>
-                        {% endif %}
-                    {% elif ready_to_confirm %}
-                        <button type="submit" name="confirm_trade" value="1" class="btn-secondary" style="width: 100%;">
-                            <span class="material-icons">check_circle</span> Confirmar minha parte
-                        </button>
-                    {% else %}
-                        <button type="submit" class="btn-secondary" style="width: 100%;">
-                            <span class="material-icons">qr_code_2</span> Gerar QR de simulação
-                        </button>
+            {% else %}
+            <!-- ETAPA 3: CONFIRMAÇÃO DE ENTREGA -->
+            <div class="checkout-section-label" style="margin-bottom: 0.25rem;">
+                <span class="material-icons">inventory</span> Etapa {% if payment_needed %}3{% else %}2{% endif %} — Confirmar entrega
+            </div>
+            <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0 0 1rem; line-height: 1.5;">
+                Confirme quando enviar/receber o item. A troca conclui quando os <strong>dois</strong> confirmarem.
+            </p>
+
+            {% if user_confirmed %}
+                <div class="waiting-message" style="border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.04); color: var(--text-gray);">
+                    <span class="material-icons" style="color: var(--success-color);">check_circle</span>
+                    <span>Você já confirmou. Aguardando <strong>{{ other_user.username }}</strong> confirmar para concluir a troca.</span>
+                </div>
+            {% else %}
+                <div style="margin-bottom: 0.85rem;">
+                    <p class="delivery-party-detail" style="margin-bottom: 0.35rem;"><strong>Endereço para envio ({{ other_user.username }}):</strong></p>
+                    {% if other_has_addr %}
+                    <div style="padding: 0.75rem 0.9rem; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.85rem; color: var(--text-gray); line-height: 1.5;">
+                        {{ other_delivery.recipient_name }}<br>
+                        {{ other_delivery.street }}, {{ other_delivery.number }}{% if other_delivery.complement %} — {{ other_delivery.complement }}{% endif %}<br>
+                        {{ other_delivery.neighborhood }} — {{ other_delivery.city }}/{{ other_delivery.state }} · {{ other_delivery.postal_code }}
+                    </div>
                     {% endif %}
                 </div>
-            </form>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="confirm_delivery">
+                    <button type="submit" class="btn-secondary" style="width: 100%; padding: 0.9rem;">
+                        Confirmar entrega
+                    </button>
+                </form>
+                <a href="#" onclick="document.getElementById('edit-addr').scrollIntoView({behavior:'smooth'}); return false;" style="display:none;"></a>
+            {% endif %}
+
+            <!-- Editar meu endereço (colapsável) -->
+            <details style="margin-top: 1rem;" id="edit-addr">
+                <summary style="font-size: 0.82rem; color: var(--text-muted); cursor: pointer;">Editar meu endereço</summary>
+                <div style="margin-top: 0.75rem;">
+                    {% include 'partials/trade_address_form.html' %}
+                </div>
+            </details>
+            {% endif %}
+
         </div>
     </div>
-
 </div>
 {% endblock %}
 
 {% block extra_js %}
+{% include 'partials/address_masks.html' %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    const savedAddresses = {{ addresses_json|default:"[]"|safe }};
+    const picker = document.getElementById('trade-address-picker');
+    if (!picker || !savedAddresses.length) return;
 
-    // ---- Cards de seleção (pagamento + entrega) ----
-    function initMethodCards(groupName, selectId) {
-        const select = document.getElementById(selectId);
-        const cards = document.querySelectorAll(`.checkout-method-card[data-group="${groupName}"]`);
-        if (!select || !cards.length) return;
-
-        const activate = (card) => {
-            cards.forEach(c => c.classList.remove('selected'));
-            card.classList.add('selected');
-            select.value = card.dataset.value;
-            select.dispatchEvent(new Event('change'));
+    const fieldMap = {
+        recipient_name: 'id_recipient_name',
+        recipient_phone: 'id_recipient_phone',
+        postal_code: 'id_postal_code',
+        street: 'id_street',
+        number: 'id_number',
+        complement: 'id_complement',
+        neighborhood: 'id_neighborhood',
+        city: 'id_city',
+        state: 'id_state',
+    };
+    const setField = (name, val) => {
+        const el = document.getElementById(fieldMap[name]);
+        if (el) el.value = val || '';
+    };
+    picker.querySelectorAll('.saved-address-option').forEach(opt => {
+        const select = () => {
+            picker.querySelectorAll('.saved-address-option').forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+            const id = opt.dataset.addressId;
+            if (id === 'new') { Object.keys(fieldMap).forEach(k => setField(k, '')); return; }
+            const addr = savedAddresses.find(a => String(a.id) === String(id));
+            if (addr) Object.keys(fieldMap).forEach(k => setField(k, addr[k]));
         };
-
-        cards.forEach(card => {
-            card.addEventListener('click', () => activate(card));
-            card.addEventListener('keydown', e => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(card); }
-            });
-        });
-
-        if (!document.querySelector(`.checkout-method-card[data-group="${groupName}"].selected`)) {
-            const first = cards[0];
-            if (first) { first.classList.add('selected'); select.value = first.dataset.value; }
-        }
-    }
-
-    initMethodCards('tc-payment', 'id_payment_method');
-    initMethodCards('tc-delivery', 'id_delivery_method');
-
-    // ---- Mostrar/ocultar endereço conforme entrega ----
-    const deliverySelect = document.getElementById('id_delivery_method');
-    const addressSection = document.getElementById('tc-address-section');
-
-    function toggleAddress() {
-        if (!deliverySelect || !addressSection) return;
-        addressSection.style.display = deliverySelect.value === 'pickup' ? 'none' : '';
-    }
-
-    if (deliverySelect) {
-        deliverySelect.addEventListener('change', toggleAddress);
-        toggleAddress();
-    }
+        opt.addEventListener('click', select);
+        opt.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); } });
+    });
 });
 </script>
 {% endblock %}

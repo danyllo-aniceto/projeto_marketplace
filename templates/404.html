@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}Página não encontrada — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="error-page">
+        <span class="error-code">404</span>
+        <span class="material-icons error-icon">travel_explore</span>
+        <h1>Página não encontrada</h1>
+        <p>O endereço que você tentou acessar não existe ou foi movido.</p>
+        <div class="error-actions">
+            <a href="{% url 'home' %}" class="btn-secondary">Voltar ao início</a>
+            <a href="{% url 'stores' %}" class="btn-details">Ver lojas</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

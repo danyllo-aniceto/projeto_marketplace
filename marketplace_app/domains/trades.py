@@ -3,8 +3,24 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.urls import reverse
 from django.utils.crypto import get_random_string
 from django.utils import timezone
+
+from marketplace_app.models import Notification
+from marketplace_app.notifications import notify
+
+
+def _trade_other_user(trade_request, user):
+    return trade_request.counterparty if user.id == trade_request.requester_id else trade_request.requester
+
+
+def _notify_trade(recipient, title, message, trade_request, actor, icon='handshake'):
+    notify(
+        recipient, title, message,
+        url=reverse('trade_request_detail', args=[trade_request.pk]),
+        category=Notification.TRADE, icon=icon, actor=actor,
+    )
 
 from marketplace_app.forms import (
     TradeMessageForm,
@@ -168,28 +184,10 @@ def trade_request_detail(request, pk):
     proposal_state = _get_trade_proposal_state(request, trade_request, proposals)
     message_form = TradeMessageForm()
     proposal_form = TradeProposalForm()
-    fulfillment_form = TradeFulfillmentForm(
-        initial={
-            'payment_method': Order.PIX,
-            'delivery_method': Order.TO_AGREE,
-        }
-    )
-    user_delivery = None
-    other_delivery = None
-    try:
-        user_delivery = TradeDelivery.objects.get(trade_request=trade_request, user=request.user)
-    except TradeDelivery.DoesNotExist:
-        user_delivery = None
-    other_user = trade_request.requester if request.user != trade_request.requester else trade_request.counterparty
-    try:
-        other_delivery = TradeDelivery.objects.get(trade_request=trade_request, user=other_user)
-    except TradeDelivery.DoesNotExist:
-        other_delivery = None
-    user_delivery_form = TradeDeliveryForm(instance=user_delivery)
-    other_delivery_form = TradeDeliveryForm(instance=other_delivery)
     timeline_items = []
 
     for proposal in proposals:
+        cash_payer_user = proposal.get_cash_payer_user()
         timeline_items.append({
             'kind': 'proposal',
             'created_at': proposal.created_at,
@@ -198,6 +196,8 @@ def trade_request_detail(request, pk):
             'title': 'Proposta' if proposal.proposer_id == trade_request.requester_id else 'Contraproposta',
             'description': proposal.item_description or 'Sem produto descrito.',
             'cash_amount': proposal.cash_amount,
+            'cash_payer_name': cash_payer_user.username if cash_payer_user else None,
+            'cash_payer_is_me': bool(cash_payer_user and cash_payer_user.id == request.user.id),
             'note': proposal.note,
             'images': list(proposal.images.all()),
         })
@@ -231,14 +231,27 @@ def trade_request_detail(request, pk):
 
     timeline_items.sort(key=lambda item: item['created_at'], reverse=True)
 
+    # Clareza de quem pagaria o valor adicional (apenas um dos dois):
+    # quem propõe dinheiro é quem paga. Usamos a proposta mais recente para a prévia.
+    latest_proposal = proposal_state['latest_proposal']
+    fulfillment = getattr(trade_request, 'fulfillment', None)
+    if fulfillment and fulfillment.agreed_proposal and fulfillment.payment_amount > 0:
+        pending_payer = fulfillment.agreed_proposal.get_cash_payer_user()
+        pending_cash = fulfillment.payment_amount
+    elif latest_proposal and latest_proposal.cash_amount and latest_proposal.cash_amount > 0:
+        pending_payer = latest_proposal.get_cash_payer_user()
+        pending_cash = latest_proposal.cash_amount
+    else:
+        pending_payer = None
+        pending_cash = 0
+
     return render(request, 'marketplace_app/trade_request_detail.html', {
         'trade_request': trade_request,
         'proposals': proposals,
         'trade_messages': trade_messages,
         'message_form': message_form,
         'proposal_form': proposal_form,
-        'fulfillment_form': fulfillment_form,
-        'latest_proposal': proposal_state['latest_proposal'],
+        'latest_proposal': latest_proposal,
         'next_actor': proposal_state['next_actor'],
         'can_create_proposal': proposal_state['can_create_proposal'],
         'can_accept_proposal': proposal_state['can_accept_proposal'],
@@ -250,11 +263,11 @@ def trade_request_detail(request, pk):
         'proposal_button_label': proposal_state['proposal_button_label'],
         'turn_message': proposal_state['turn_message'],
         'trade_is_final': _is_trade_final(trade_request),
-        'fulfillment': getattr(trade_request, 'fulfillment', None),
+        'fulfillment': fulfillment,
         'timeline_items': timeline_items,
-        'user_delivery_form': user_delivery_form,
-        'other_delivery': other_delivery,
-        'other_delivery_form': other_delivery_form,
+        'pending_payer': pending_payer,
+        'pending_cash': pending_cash,
+        'pending_payer_is_me': bool(pending_payer and pending_payer.id == request.user.id),
     })
 
 
@@ -295,6 +308,21 @@ def trade_proposal_create(request, pk):
             proposal = form.save(commit=False)
             proposal.trade_request = trade_request
             proposal.proposer = request.user
+
+            # Quem paga o valor adicional (escolhido por quem propõe).
+            if proposal.cash_amount and proposal.cash_amount > 0:
+                payer_side = request.POST.get('cash_payer')
+                if payer_side not in (TradeProposal.PAYER_REQUESTER, TradeProposal.PAYER_OWNER):
+                    # Padrão: quem propõe paga.
+                    payer_side = (
+                        TradeProposal.PAYER_REQUESTER
+                        if request.user.id == trade_request.requester_id
+                        else TradeProposal.PAYER_OWNER
+                    )
+                proposal.cash_payer = payer_side
+            else:
+                proposal.cash_payer = ''
+
             proposal.save()
             images = form.cleaned_data.get('images') or []
             for img in images:
@@ -302,6 +330,13 @@ def trade_proposal_create(request, pk):
             if trade_request.status == TradeRequest.PENDING:
                 trade_request.status = TradeRequest.NEGOTIATING
                 trade_request.save(update_fields=['status'])
+
+            _notify_trade(
+                _trade_other_user(trade_request, request.user),
+                'Nova proposta de troca',
+                f'{request.user.username} enviou uma proposta em "{trade_request.listing.title}".',
+                trade_request, request.user, icon='swap_horiz',
+            )
             messages.success(request, 'Proposta registrada. A negociação continua pendente.')
         else:
             messages.error(request, 'Não foi possível registrar a proposta.')
@@ -377,6 +412,12 @@ def trade_proposal_accept(request, pk, proposal_pk):
     trade_request.status = TradeRequest.APPROVED
     trade_request.save(update_fields=['status'])
 
+    _notify_trade(
+        proposal.proposer,
+        'Proposta aceita!',
+        f'{request.user.username} aceitou sua proposta em "{trade_request.listing.title}". Finalize a troca.',
+        trade_request, request.user, icon='check_circle',
+    )
     messages.success(request, 'Proposta aceita. Agora preencha a entrega e confirme a troca.')
     return redirect('trade_checkout', pk=pk)
 
@@ -415,6 +456,12 @@ def trade_request_reject(request, pk):
         fulfillment.payment_status = TradeFulfillment.CANCELLED
         fulfillment.save(update_fields=['payment_status', 'updated_at'])
 
+    _notify_trade(
+        _trade_other_user(trade_request, request.user),
+        'Troca recusada',
+        f'{request.user.username} recusou a negociação de "{trade_request.listing.title}".',
+        trade_request, request.user, icon='thumb_down',
+    )
     messages.success(request, 'Negociação recusada com sucesso.')
     return redirect('trade_requests')
 
@@ -437,9 +484,19 @@ def trade_request_cancel(request, pk):
             fulfillment = trade_request.fulfillment
             fulfillment.payment_status = TradeFulfillment.CANCELLED
             fulfillment.save(update_fields=['payment_status', 'updated_at'])
+        _notify_trade(
+            trade_request.counterparty,
+            'Troca cancelada',
+            f'{request.user.username} cancelou a negociação de "{trade_request.listing.title}".',
+            trade_request, request.user, icon='cancel',
+        )
         messages.success(request, 'Negociação cancelada com sucesso.')
 
     return redirect('trade_requests')
+
+
+def _trade_address_complete(delivery):
+    return bool(delivery and delivery.street and delivery.number and delivery.city and delivery.state)
 
 
 @login_required
@@ -452,108 +509,157 @@ def trade_checkout(request, pk):
     if request.user not in [trade_request.requester, trade_request.counterparty]:
         return redirect('trade_requests')
 
-    if _is_trade_final(trade_request):
-        messages.error(request, 'Esta negociação já foi encerrada.')
-        return redirect('trade_request_detail', pk=pk)
-
     fulfillment = getattr(trade_request, 'fulfillment', None)
     if fulfillment is None:
         messages.error(request, 'Esta troca ainda não foi aceita.')
         return redirect('trade_request_detail', pk=pk)
 
+    # Permite ver o checkout quando concluída (estado final feliz); bloqueia os demais finais.
+    if trade_request.status != TradeRequest.COMPLETED and _is_trade_final(trade_request):
+        messages.error(request, 'Esta negociação foi encerrada.')
+        return redirect('trade_request_detail', pk=pk)
+
+    other_user = trade_request.counterparty if request.user == trade_request.requester else trade_request.requester
     deliveries = _get_trade_deliveries(trade_request)
     user_delivery = deliveries.get(request.user.id)
-    other_user = trade_request.requester if request.user != trade_request.requester else trade_request.counterparty
     other_delivery = deliveries.get(other_user.id)
 
-    trade_checkout_data = _get_trade_checkout(request)
+    payment_needed = fulfillment.payment_amount and fulfillment.payment_amount > 0
+    payer = fulfillment.agreed_proposal.get_cash_payer_user() if (fulfillment.agreed_proposal and payment_needed) else None
+    is_payer = bool(payer and request.user.id == payer.id)
+    payment_done = (not payment_needed) or fulfillment.payment_status == TradeFulfillment.COMPLETED
 
-    payer = fulfillment.agreed_proposal.proposer if fulfillment.agreed_proposal else None
+    # ---------------- AÇÕES POST ----------------
+    if request.method == 'POST' and trade_request.status != TradeRequest.COMPLETED:
+        action = request.POST.get('action')
 
-    if request.method == 'POST':
-        form = TradeFulfillmentForm(request.POST, instance=fulfillment)
-        if form.is_valid():
-            fulfillment = form.save(commit=False)
-            if fulfillment.payment_amount == 0 and fulfillment.trade_request_id:
-                fulfillment.payment_status = TradeFulfillment.DRAFT
-            fulfillment.save()
-            _store_trade_checkout(request, trade_request, fulfillment, form)
+        if action == 'save_address':
+            form = TradeDeliveryForm(request.POST, instance=user_delivery)
+            if form.is_valid():
+                d = form.save(commit=False)
+                d.trade_request = trade_request
+                d.user = request.user
+                if d.status != TradeDelivery.DELIVERED:
+                    d.status = TradeDelivery.DRAFT
+                d.save()
+                messages.success(request, 'Endereço de entrega salvo.')
+            else:
+                messages.error(request, 'Verifique os campos do endereço.')
+            return redirect('trade_checkout', pk=pk)
 
-            if request.POST.get('confirm_trade') == '1':
-                if user_delivery is None:
-                    messages.error(request, 'Preencha seus dados de envio antes de confirmar a troca.')
-                    return redirect('trade_request_detail', pk=pk)
+        if action == 'confirm_payment':
+            both_addr = _trade_address_complete(user_delivery) and _trade_address_complete(other_delivery)
+            if not is_payer:
+                messages.error(request, 'Somente quem deve o valor adicional pode confirmar o pagamento.')
+            elif not both_addr:
+                messages.error(request, 'Aguarde os dois endereços serem cadastrados antes de pagar.')
+            elif fulfillment.payment_status == TradeFulfillment.COMPLETED:
+                messages.info(request, 'O pagamento já foi confirmado.')
+            else:
+                fulfillment.payment_method = request.POST.get('payment_method') or fulfillment.payment_method or Order.PIX
+                fulfillment.payment_status = TradeFulfillment.COMPLETED
+                fulfillment.payment_confirmed_at = timezone.now()
+                fulfillment.save(update_fields=['payment_method', 'payment_status', 'payment_confirmed_at', 'updated_at'])
+                _notify_trade(
+                    other_user,
+                    'Pagamento da troca confirmado',
+                    f'{request.user.username} pagou R$ {fulfillment.payment_amount} na troca de "{trade_request.listing.title}".',
+                    trade_request, request.user, icon='payments',
+                )
+                messages.success(request, 'Pagamento confirmado. Agora confirme a entrega.')
+            return redirect('trade_checkout', pk=pk)
 
+        if action == 'confirm_delivery':
+            both_addr = _trade_address_complete(user_delivery) and _trade_address_complete(other_delivery)
+            if not both_addr:
+                messages.error(request, 'É preciso que os dois endereços estejam cadastrados.')
+            elif not payment_done:
+                messages.error(request, 'Aguarde a confirmação do pagamento adicional.')
+            elif user_delivery is None:
+                messages.error(request, 'Cadastre seu endereço primeiro.')
+            else:
                 with transaction.atomic():
-                    fulfillment = TradeFulfillment.objects.select_for_update().get(pk=fulfillment.pk)
-                    user_delivery = TradeDelivery.objects.select_for_update().get(trade_request=trade_request, user=request.user)
-                    user_delivery.status = TradeDelivery.DELIVERED
-                    user_delivery.save(update_fields=['status', 'updated_at'])
+                    ud = TradeDelivery.objects.select_for_update().get(pk=user_delivery.pk)
+                    ud.status = TradeDelivery.DELIVERED
+                    ud.save(update_fields=['status', 'updated_at'])
 
-                    if fulfillment.payment_amount > 0 and request.user == payer:
-                        fulfillment.payment_status = TradeFulfillment.COMPLETED
-                        fulfillment.payment_confirmed_at = timezone.now()
-
-                    deliveries = _get_trade_deliveries(trade_request)
-                    if _can_complete_trade(fulfillment, deliveries):
+                    fresh = _get_trade_deliveries(trade_request)
+                    if _can_complete_trade(fulfillment, fresh):
+                        if fulfillment.payment_status != TradeFulfillment.COMPLETED:
+                            fulfillment.payment_status = TradeFulfillment.COMPLETED
                         fulfillment.confirmed_at = timezone.now()
-                        fulfillment.save(update_fields=['payment_status', 'payment_confirmed_at', 'confirmed_at', 'updated_at'])
+                        fulfillment.save(update_fields=['payment_status', 'confirmed_at', 'updated_at'])
 
                         trade_request.status = TradeRequest.COMPLETED
                         trade_request.save(update_fields=['status'])
+                        # Decrementa o estoque do anúncio trocado; esgota quando chega a zero.
+                        # Usa .update() para não re-disparar o full_clean do Listing.
+                        listing = Listing.objects.select_for_update().get(pk=trade_request.listing_id)
+                        new_stock = max(0, listing.stock - 1)
+                        new_status = Listing.SOLD if new_stock == 0 else listing.status
+                        Listing.objects.filter(pk=listing.pk).update(stock=new_stock, status=new_status)
+                        _notify_trade(
+                            other_user,
+                            'Troca concluída!',
+                            f'A troca de "{trade_request.listing.title}" foi finalizada pelos dois lados.',
+                            trade_request, request.user, icon='verified',
+                        )
+                        messages.success(request, 'Troca concluída! O registro está no histórico.')
+                    else:
+                        _notify_trade(
+                            other_user,
+                            'Entrega confirmada pelo outro',
+                            f'{request.user.username} confirmou a entrega em "{trade_request.listing.title}". Falta a sua confirmação.',
+                            trade_request, request.user, icon='inventory',
+                        )
+                        messages.success(request, 'Confirmação registrada. Aguardando o outro participante.')
+            return redirect('trade_checkout', pk=pk)
 
-                        trade_request.listing.status = Listing.SOLD
-                        trade_request.listing.save(update_fields=['status'])
+        return redirect('trade_checkout', pk=pk)
 
-                        _clear_trade_checkout(request)
-                        messages.success(request, 'Troca confirmada com sucesso. O histórico foi atualizado.')
-                        return redirect('trade_request_detail', pk=pk)
+    # ---------------- GET: calcula a etapa ----------------
+    user_has_addr = _trade_address_complete(user_delivery)
+    other_has_addr = _trade_address_complete(other_delivery)
+    both_addr = user_has_addr and other_has_addr
+    user_confirmed = bool(user_delivery and user_delivery.status == TradeDelivery.DELIVERED)
+    other_confirmed = bool(other_delivery and other_delivery.status == TradeDelivery.DELIVERED)
 
-                    update_fields = ['updated_at']
-                    if fulfillment.payment_amount > 0 and request.user == payer:
-                        update_fields.extend(['payment_status', 'payment_confirmed_at'])
-                    fulfillment.save(update_fields=update_fields)
-
-                messages.success(request, 'Sua confirmação foi registrada. Agora falta a confirmação do outro participante.')
-                return redirect('trade_checkout', pk=pk)
-
-            return render(request, 'marketplace_app/trade_checkout.html', {
-                'trade_request': trade_request,
-                'fulfillment': fulfillment,
-                'form': form,
-                'show_qr_simulation': fulfillment.payment_amount > 0,
-                'ready_to_confirm': fulfillment.payment_amount == 0,
-                'qr_pattern': SIMULATED_QR_PATTERN if fulfillment.payment_amount > 0 else [],
-                'qr_token': request.session[TRADE_CHECKOUT_SESSION_KEY]['token'],
-                'user_delivery': user_delivery,
-                'other_delivery': other_delivery,
-            })
-            messages.error(request, 'Não foi possível salvar os dados da troca.')
+    if trade_request.status == TradeRequest.COMPLETED:
+        phase = 'done'
+    elif not both_addr:
+        phase = 'address'
+    elif payment_needed and not payment_done:
+        phase = 'payment'
     else:
-        form = TradeFulfillmentForm(instance=fulfillment, initial={'payment_method': Order.PIX, 'delivery_method': Order.TO_AGREE})
+        phase = 'confirm'
 
-    if trade_checkout_data:
-        form = TradeFulfillmentForm(instance=fulfillment, initial=trade_checkout_data.get('form_data', {}))
-        show_qr_simulation = fulfillment.payment_amount > 0
-        ready_to_confirm = fulfillment.payment_amount == 0
-    else:
-        show_qr_simulation = False
-        ready_to_confirm = False
+    address_form = TradeDeliveryForm(instance=user_delivery)
+    qr_token = 'TR-%s-%s' % (trade_request.id, get_random_string(6).upper())
+
+    from marketplace_app.domains.checkout import _saved_addresses_payload
+    saved_addresses, addresses_json = _saved_addresses_payload(request.user)
 
     return render(request, 'marketplace_app/trade_checkout.html', {
         'trade_request': trade_request,
         'fulfillment': fulfillment,
-        'form': form,
-        'show_qr_simulation': show_qr_simulation,
-        'ready_to_confirm': ready_to_confirm,
-        'qr_pattern': SIMULATED_QR_PATTERN if show_qr_simulation else [],
-        'qr_token': trade_checkout_data['token'] if trade_checkout_data else '',
+        'address_form': address_form,
+        'phase': phase,
+        'payment_needed': bool(payment_needed),
+        'payment_done': payment_done,
+        'payer': payer,
+        'is_payer': is_payer,
+        'other_user': other_user,
         'user_delivery': user_delivery,
         'other_delivery': other_delivery,
-        'user_delivery_confirmed': bool(user_delivery and user_delivery.status == TradeDelivery.DELIVERED),
-        'other_delivery_confirmed': bool(other_delivery and other_delivery.status == TradeDelivery.DELIVERED),
-        'can_finalize_trade': _can_complete_trade(fulfillment, deliveries),
-        'payer': payer,
+        'user_has_addr': user_has_addr,
+        'other_has_addr': other_has_addr,
+        'both_addr': both_addr,
+        'user_confirmed': user_confirmed,
+        'other_confirmed': other_confirmed,
+        'qr_pattern': SIMULATED_QR_PATTERN,
+        'qr_token': qr_token,
+        'saved_addresses': saved_addresses,
+        'addresses_json': addresses_json,
     })
 
 
@@ -578,6 +684,12 @@ def trade_message_create(request, pk):
             if trade_request.status == TradeRequest.PENDING:
                 trade_request.status = TradeRequest.NEGOTIATING
                 trade_request.save(update_fields=['status'])
+            _notify_trade(
+                _trade_other_user(trade_request, request.user),
+                'Nova mensagem na troca',
+                f'{request.user.username}: {trade_message.content[:80]}',
+                trade_request, request.user, icon='chat',
+            )
             messages.success(request, 'Mensagem enviada.')
         else:
             messages.error(request, 'Não foi possível enviar a mensagem.')

@@ -1,6 +1,6 @@
 from django.db import models
 
-from .models import Cart, CartItem
+from .models import Cart, CartItem, Notification
 
 
 def cart_counts(request):
@@ -26,4 +26,22 @@ def cart_counts(request):
         'cart_buy_count': buy_count,
         'cart_trade_count': trade_count,
         'cart_total_count': total,
+    }
+
+
+def notifications(request):
+    """Disponibiliza no header o total de não lidas e as mais recentes."""
+    if not request.user or not request.user.is_authenticated:
+        return {}
+
+    try:
+        qs = Notification.objects.filter(recipient=request.user)
+        unread = qs.filter(is_read=False).count()
+        recent = list(qs[:8])
+    except Exception:
+        return {}
+
+    return {
+        'notifications_unread_count': unread,
+        'notifications_recent': recent,
     }

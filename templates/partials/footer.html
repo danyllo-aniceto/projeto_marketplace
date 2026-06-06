@@ -1,29 +1,29 @@
+{% load static %}
 <footer>
     <div class="footer-container">
         <div class="footer-section">
             <h3><span class="material-icons">store</span> Tech Hub</h3>
-            <p>Sua plataforma de confiança para comprar e vender produtos tecnológicos.</p>
+            <p>Marketplace de tecnologia para comprar, vender e trocar componentes e produtos eletrônicos.</p>
+        </div>
+        <div class="footer-section">
+            <h3><span class="material-icons">explore</span> Navegar</h3>
+            <p><a href="{% url 'home' %}">Início</a></p>
+            <p><a href="{% url 'stores' %}">Lojas</a></p>
+            <p><a href="{% url 'criar_anuncio' %}">Anunciar produto</a></p>
         </div>
         <div class="footer-section">
             <h3><span class="material-icons">support</span> Suporte</h3>
-            <p><a href="#">Central de Ajuda</a></p>
-            <p><a href="#">Contato</a></p>
-            <p><a href="#">Política de Privacidade</a></p>
+            <p><a href="{% url 'help' %}">Central de Ajuda</a></p>
+            <p><a href="{% url 'contact' %}">Contato</a></p>
         </div>
         <div class="footer-section">
-            <h3><span class="material-icons">business</span> Empresa</h3>
-            <p><a href="#">Sobre Nós</a></p>
-            <p><a href="#">Carreiras</a></p>
-            <p><a href="#">Blog</a></p>
-        </div>
-        <div class="footer-section">
-            <h3><span class="material-icons">connect_without_contact</span> Redes Sociais</h3>
-            <p><a href="#"><span class="material-icons">facebook</span> Facebook</a></p>
-            <p><a href="#"><span class="material-icons">instagram</span> Instagram</a></p>
-            <p><a href="#"><span class="material-icons">twitter</span> Twitter</a></p>
+            <h3><span class="material-icons">business</span> Tech Hub</h3>
+            <p><a href="{% url 'about' %}">Sobre nós</a></p>
+            <p><a href="{% url 'privacy' %}">Política de Privacidade</a></p>
+            <p><a href="{% url 'terms' %}">Termos de Uso</a></p>
         </div>
     </div>
     <div class="footer-bottom">
-        <p>&copy; 2024 Tech Hub Marketplace. Todos os direitos reservados.</p>
+        <p>&copy; 2026 Tech Hub — Projeto acadêmico. Pagamentos simulados, sem transações reais.</p>
     </div>
 </footer>

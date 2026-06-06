@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Central de Ajuda — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="doc-page">
+        <div class="doc-hero">
+            <h1>Central de Ajuda</h1>
+            <p>Respostas rápidas para as dúvidas mais comuns.</p>
+        </div>
+
+        <div class="doc-section">
+            <details class="faq-item" open>
+                <summary>Como funciona a troca?</summary>
+                <p>Adicione um item de troca ao carrinho e inicie a negociação. Vocês trocam propostas (item e/ou
+                valor em dinheiro), e quem propõe o valor escolhe quem paga. Após aceitar, ambos cadastram o
+                endereço, o pagador (se houver valor) confirma o pagamento, e os dois confirmam a entrega.</p>
+            </details>
+            <details class="faq-item">
+                <summary>O pagamento é real?</summary>
+                <p>Não. Este é um projeto acadêmico: o pagamento é simulado com um QR Code ilustrativo. Nenhuma
+                cobrança real é feita.</p>
+            </details>
+            <details class="faq-item">
+                <summary>Como confirmo o recebimento de uma compra?</summary>
+                <p>Em <strong>Pedidos</strong>, abra o pedido e clique em "Confirmar recebimento" quando o vendedor
+                tiver marcado o envio. O pedido é concluído quando todos os itens forem recebidos.</p>
+            </details>
+            <details class="faq-item">
+                <summary>Como reponho o estoque de um anúncio esgotado?</summary>
+                <p>Em <strong>Meus anúncios</strong> (ou Meu catálogo), edite o anúncio e aumente a quantidade em
+                estoque. Ele é reativado automaticamente.</p>
+            </details>
+            <details class="faq-item">
+                <summary>Como minha loja fica verificada?</summary>
+                <p>No menu, acesse <strong>Verificação</strong>, envie um documento e aguarde a análise. Quando
+                aprovada, sua loja recebe o selo e prioridade no hub de lojas.</p>
+            </details>
+            <details class="faq-item">
+                <summary>Diferença entre PF e Loja?</summary>
+                <p>Pessoa física pode vender e trocar, produtos novos ou usados. Lojas vendem apenas produtos novos
+                e não fazem troca, mas têm catálogo, banner e selo de verificação.</p>
+            </details>
+        </div>
+    </div>
+</div>
+{% endblock %}

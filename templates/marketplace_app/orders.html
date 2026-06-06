@@ -6,20 +6,34 @@
 <div class="container">
     <div class="page-header">
         <h2 class="section-title"><span class="material-icons">receipt_long</span> Meus Pedidos</h2>
+        <div class="page-header-actions">
+            <a href="{% url 'history' %}" class="btn-primary">Ver histórico</a>
+        </div>
     </div>
 
-    {% if orders %}
-        <div class="products-grid">
-            {% for order in orders %}
+    <div class="tab-nav">
+        <button class="tab-btn active" data-target="purchases-panel">
+            <span class="material-icons">shopping_bag</span>
+            Minhas compras ({{ purchase_count }})
+        </button>
+        <button class="tab-btn" data-target="sales-panel">
+            <span class="material-icons">sell</span>
+            Minhas vendas ({{ sale_count }})
+        </button>
+    </div>
+
+    <!-- ===================== COMPRAS ===================== -->
+    <div id="purchases-panel" class="cart-panel">
+        {% if purchases_page.object_list %}
+            <div class="products-grid">
+                {% for order in purchases_page %}
                 <div class="trade-card">
                     <div class="trade-card-header">
                         <h3 class="trade-card-title">Pedido #{{ order.id }}</h3>
-                        {% if order.status == 'paid' or order.status == 'completed' or order.status == 'delivered' %}
-                            <span class="badge badge-approved">{{ order.get_status_display }}</span>
-                        {% elif order.status == 'cancelled' %}
-                            <span class="badge badge-rejected">{{ order.get_status_display }}</span>
+                        {% if order.status == 'paid' %}
+                            <span class="badge badge-pending">Em andamento</span>
                         {% elif order.status == 'pending_payment' %}
-                            <span class="badge badge-pending">{{ order.get_status_display }}</span>
+                            <span class="badge badge-pending">Aguardando pgto.</span>
                         {% else %}
                             <span class="badge badge-info">{{ order.get_status_display }}</span>
                         {% endif %}
@@ -29,29 +43,126 @@
                         <span><span class="material-icons">payments</span> {{ order.get_payment_method_display }}</span>
                         <span><span class="material-icons">local_shipping</span> {{ order.get_delivery_method_display }}</span>
                     </div>
-                    <p style="color: var(--accent-cyan); font-weight: 700; font-size: 1.1rem; margin: 0.25rem 0 0;">
+
+                    <!-- Progresso dos itens -->
+                    <div style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.82rem; color: var(--text-muted);">
+                        {% for item in order.items.all %}
+                        <div style="display: flex; justify-content: space-between; gap: 0.5rem;">
+                            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ item.title_snapshot }}</span>
+                            {% if item.status == 'received' %}
+                                <span class="badge badge-approved" style="font-size: 0.68rem;">Recebido</span>
+                            {% elif item.status == 'shipped' %}
+                                <span class="badge badge-info" style="font-size: 0.68rem;">A caminho</span>
+                            {% else %}
+                                <span class="badge badge-pending" style="font-size: 0.68rem;">Aguardando</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <p style="color: var(--accent-cyan); font-weight: 700; font-size: 1.05rem; margin: 0.35rem 0 0;">
                         R$ {{ order.total_amount|floatformat:2 }}
                     </p>
-                    {% if order.delivery %}
-                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.2rem 0 0;">
-                            Entrega: {{ order.delivery.get_status_display }}
-                        </p>
-                    {% endif %}
                     <div class="trade-card-actions">
-                        <a href="{% url 'order_detail' order.id %}" class="btn-details">
-                            <span class="material-icons">receipt_long</span> Abrir pedido
-                        </a>
+                        <a href="{% url 'order_detail' order.id %}" class="btn-details">Ver pedido</a>
                     </div>
                 </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="empty-state">
-            <span class="material-icons empty-icon">receipt_long</span>
-            <h3>Nenhum pedido ainda</h3>
-            <p>Seus pedidos aparecerão aqui após finalizar uma compra.</p>
-            <a href="{% url 'home' %}" class="btn-secondary" style="margin-top: 0.5rem;">Ver produtos</a>
-        </div>
-    {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if purchases_page.has_other_pages %}
+            <div class="pagination">
+                {% if purchases_page.has_previous %}
+                    <a href="?purchase_page={{ purchases_page.previous_page_number }}&sale_page={{ sales_page.number }}#purchases-panel" class="btn-details">Anterior</a>
+                {% endif %}
+                <span class="pagination-info">Página {{ purchases_page.number }} de {{ purchases_page.paginator.num_pages }}</span>
+                {% if purchases_page.has_next %}
+                    <a href="?purchase_page={{ purchases_page.next_page_number }}&sale_page={{ sales_page.number }}#purchases-panel" class="btn-details">Próxima</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <span class="material-icons empty-icon">shopping_bag</span>
+                <h3>Nenhuma compra em andamento</h3>
+                <p>Compras concluídas ficam no <a href="{% url 'history' %}" class="seller-link">histórico</a>.</p>
+                <a href="{% url 'home' %}" class="btn-secondary" style="margin-top: 0.5rem;">Ver produtos</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- ===================== VENDAS ===================== -->
+    <div id="sales-panel" class="cart-panel" style="display:none;">
+        {% if sales_page.object_list %}
+            <div class="products-grid">
+                {% for item in sales_page %}
+                <div class="trade-card">
+                    <div class="trade-card-header">
+                        <h3 class="trade-card-title">{{ item.title_snapshot }}</h3>
+                        {% if item.status == 'shipped' %}
+                            <span class="badge badge-info">Enviado</span>
+                        {% elif item.status == 'received' %}
+                            <span class="badge badge-approved">Concluído</span>
+                        {% else %}
+                            <span class="badge badge-pending">Enviar</span>
+                        {% endif %}
+                    </div>
+                    <p class="trade-card-description">Pedido #{{ item.order.id }} · {{ item.order.created_at|date:'d/m/Y H:i' }}</p>
+                    <div class="trade-card-meta">
+                        <span><span class="material-icons">person</span> {{ item.order.buyer.username }}</span>
+                        <span><span class="material-icons">local_shipping</span> {{ item.order.get_delivery_method_display }}</span>
+                    </div>
+                    <p style="color: var(--accent-cyan); font-weight: 700; font-size: 1.05rem; margin: 0.35rem 0 0;">
+                        R$ {{ item.unit_price_snapshot|floatformat:2 }}
+                    </p>
+                    <div class="trade-card-actions">
+                        {% if item.status == 'pending_shipment' and item.order.status == 'paid' %}
+                        <a href="{% url 'order_detail' item.order.id %}" class="btn-secondary">Ver pedido e enviar</a>
+                        {% else %}
+                        <a href="{% url 'order_detail' item.order.id %}" class="btn-details">Ver pedido</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% if sales_page.has_other_pages %}
+            <div class="pagination">
+                {% if sales_page.has_previous %}
+                    <a href="?purchase_page={{ purchases_page.number }}&sale_page={{ sales_page.previous_page_number }}#sales-panel" class="btn-details">Anterior</a>
+                {% endif %}
+                <span class="pagination-info">Página {{ sales_page.number }} de {{ sales_page.paginator.num_pages }}</span>
+                {% if sales_page.has_next %}
+                    <a href="?purchase_page={{ purchases_page.number }}&sale_page={{ sales_page.next_page_number }}#sales-panel" class="btn-details">Próxima</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <span class="material-icons empty-icon">sell</span>
+                <h3>Nenhuma venda em andamento</h3>
+                <p>Quando alguém comprar um anúncio seu, ele aparece aqui para você confirmar o envio.</p>
+            </div>
+        {% endif %}
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const tabs = document.querySelectorAll('.tab-btn');
+    const panels = document.querySelectorAll('.cart-panel');
+
+    function activate(targetId) {
+        tabs.forEach(t => t.classList.toggle('active', t.dataset.target === targetId));
+        panels.forEach(p => p.style.display = p.id === targetId ? 'block' : 'none');
+    }
+
+    tabs.forEach(tab => tab.addEventListener('click', () => activate(tab.dataset.target)));
+
+    // Abre a aba correta se vier âncora (#sales-panel)
+    if (window.location.hash === '#sales-panel') activate('sales-panel');
+});
+</script>
 {% endblock %}

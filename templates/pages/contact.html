@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}Contato — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="doc-page">
+        <div class="doc-hero">
+            <h1>Fale com a gente</h1>
+            <p>Dúvidas, sugestões ou problemas? Envie uma mensagem. <em>(Projeto acadêmico — envio simulado.)</em></p>
+        </div>
+
+        <div class="doc-contact-grid">
+            <div class="doc-section" style="margin:0;">
+                <h2><span class="material-icons">mail</span> Enviar mensagem</h2>
+                <form method="post" class="listing-form-card" style="margin-top: 0.5rem;">
+                    {% csrf_token %}
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="c-name">Nome</label>
+                            <input type="text" id="c-name" name="name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="c-email">E-mail</label>
+                            <input type="email" id="c-email" name="email" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="c-subject">Assunto</label>
+                        <input type="text" id="c-subject" name="subject" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="c-message">Mensagem</label>
+                        <textarea id="c-message" name="message" class="form-control" rows="5" required></textarea>
+                    </div>
+                    <button type="submit" class="btn-secondary" style="min-width: 160px;">Enviar</button>
+                </form>
+            </div>
+
+            <div class="doc-section" style="margin:0;">
+                <h2><span class="material-icons">support_agent</span> Canais</h2>
+                <ul class="doc-contact-list">
+                    <li><span class="material-icons">email</span> contato@techhub.exemplo</li>
+                    <li><span class="material-icons">call</span> (00) 0000-0000</li>
+                    <li><span class="material-icons">schedule</span> Seg a Sex, 9h às 18h</li>
+                    <li><span class="material-icons">location_on</span> Campus Universitário — Brasil</li>
+                </ul>
+                <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.6;">
+                    Precisa de ajuda rápida? Veja a <a href="{% url 'help' %}" class="seller-link">Central de Ajuda</a>.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

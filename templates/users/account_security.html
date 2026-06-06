@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Segurança da conta — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">shield</span> Segurança da conta</h2>
+    </div>
+
+    <div style="max-width: 760px;">
+        <!-- Status da conta -->
+        <div class="verify-status-card {% if strikes >= max_strikes %}is-pending{% else %}is-verified{% endif %}" style="margin-bottom: 1.25rem;">
+            <span class="material-icons">{% if strikes >= max_strikes %}gpp_bad{% else %}verified_user{% endif %}</span>
+            <div>
+                <strong>Conta ativa</strong>
+                <p>Sua conta está em situação regular. Mantenha o respeito às regras para não receber advertências.</p>
+            </div>
+        </div>
+
+        <!-- Strikes -->
+        <div class="summary-card" style="margin-bottom: 1.25rem;">
+            <h3><span class="material-icons">gavel</span> Advertências (strikes)</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin: -0.25rem 0 0.85rem; line-height: 1.55;">
+                Conteúdo proibido (ofensa, ódio, itens ilegais) ou anúncios removidos pela moderação geram advertências.
+                Ao atingir <strong>{{ max_strikes }}</strong>, a conta é suspensa automaticamente.
+            </p>
+            <div class="strike-dots">
+                {% for i in "123" %}
+                    <span class="strike-dot {% if forloop.counter <= strikes %}filled{% endif %}">
+                        <span class="material-icons">{% if forloop.counter <= strikes %}gpp_bad{% else %}check_circle{% endif %}</span>
+                    </span>
+                {% endfor %}
+                <span class="strike-label">{{ strikes }} de {{ max_strikes }}</span>
+            </div>
+        </div>
+
+        <!-- Resumo -->
+        <div class="summary-card" style="margin-bottom: 1.25rem;">
+            <h3><span class="material-icons">insights</span> Sua atividade</h3>
+            <div style="display:flex; flex-direction:column; gap:0;">
+                <div class="info-row"><span class="material-icons">inventory_2</span><strong>Anúncios</strong><span>{{ listings_count }}</span></div>
+                <div class="info-row"><span class="material-icons">flag</span><strong>Denúncias recebidas</strong><span>{{ reports_received }}</span></div>
+            </div>
+        </div>
+
+        <!-- Dicas de segurança -->
+        <div class="summary-card">
+            <h3><span class="material-icons">tips_and_updates</span> Proteja sua conta</h3>
+            <ul class="listing-info-card" style="border:none; padding:0; background:none;">
+                <li>Use uma senha forte e única — <a href="{% url 'change_password' %}" class="seller-link">alterar senha</a>.</li>
+                <li>Nunca compartilhe sua senha. A equipe nunca pede sua senha.</li>
+                <li>Após 5 tentativas de login erradas, o acesso é bloqueado temporariamente.</li>
+                <li>Desconfie de combinações fora da plataforma — use os fluxos oficiais de compra e troca.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

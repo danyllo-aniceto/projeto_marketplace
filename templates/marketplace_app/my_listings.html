@@ -38,12 +38,12 @@
                         </span>
                         {% if anuncio.id in locked_listing_ids %}
                             <span class="badge badge-pending">Em negociação</span>
+                        {% elif anuncio.is_sold_out %}
+                            <span class="badge badge-rejected">Esgotado</span>
                         {% elif anuncio.status == 'active' %}
                             <span class="badge badge-approved">Ativo</span>
                         {% elif anuncio.status == 'paused' %}
                             <span class="badge badge-info">Pausado</span>
-                        {% elif anuncio.status == 'sold' %}
-                            <span class="badge badge-negotiating">Vendido</span>
                         {% endif %}
                     </div>
 
@@ -57,8 +57,12 @@
                         <p class="my-listing-price">R$ {{ anuncio.price|floatformat:2 }}</p>
                     {% endif %}
 
-                    <!-- Meta: condição + categoria -->
+                    <!-- Meta: condição + categoria + estoque -->
                     <div class="my-listing-meta">
+                        <span class="my-listing-chip">
+                            <span class="material-icons">inventory</span>
+                            {{ anuncio.stock }} em estoque
+                        </span>
                         <span class="my-listing-chip">
                             <span class="material-icons">inventory_2</span>
                             {{ anuncio.get_condition_display }}
@@ -74,14 +78,7 @@
                     <!-- Ações: empilhadas, só texto -->
                     <div class="my-listing-actions">
                         <a href="{% url 'listing_detail' anuncio.id %}" class="btn-details">Ver Detalhes</a>
-
-                        {% if anuncio.status == 'active' and anuncio.id not in locked_listing_ids %}
-                            <a href="{% url 'edit_listing' anuncio.id %}" class="btn-primary">Editar</a>
-                        {% elif anuncio.id in locked_listing_ids %}
-                            <span class="btn-primary btn-disabled">Em negociação</span>
-                        {% else %}
-                            <span class="btn-primary btn-disabled">Editar indisponível</span>
-                        {% endif %}
+                        <a href="{% url 'edit_listing' anuncio.id %}" class="btn-primary">Editar / Estoque</a>
 
                         <form method="post"
                               action="{% url 'delete_listing' anuncio.id %}"

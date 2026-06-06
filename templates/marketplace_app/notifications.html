@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Notificações — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">notifications</span> Notificações</h2>
+        <div class="page-header-actions">
+            {% if unread_count %}
+            <form method="post" action="{% url 'notifications_mark_all_read' %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn-primary">Marcar todas como lidas</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="tab-nav">
+        <a href="?tab=all" class="tab-btn {% if tab != 'unread' %}active{% endif %}" style="text-decoration:none;">
+            <span class="material-icons">inbox</span> Todas ({{ total_count }})
+        </a>
+        <a href="?tab=unread" class="tab-btn {% if tab == 'unread' %}active{% endif %}" style="text-decoration:none;">
+            <span class="material-icons">mark_email_unread</span> Não lidas ({{ unread_count }})
+        </a>
+    </div>
+
+    {% if page_obj.object_list %}
+        <div class="notif-list">
+            {% for n in page_obj %}
+            <div class="notif-row {% if not n.is_read %}is-unread{% endif %}" data-notif-id="{{ n.id }}">
+                <a href="{% url 'notification_open' n.id %}" class="notif-row-link">
+                    <span class="notif-item-icon notif-cat-{{ n.category }}"><span class="material-icons">{{ n.icon }}</span></span>
+                    <span class="notif-row-content">
+                        <span class="notif-row-title">{{ n.title }}{% if not n.is_read %}<span class="notif-dot"></span>{% endif %}</span>
+                        <span class="notif-row-msg">{{ n.message }}</span>
+                        <span class="notif-row-time">{{ n.created_at|date:'d/m/Y H:i' }} · {{ n.created_at|timesince }} atrás</span>
+                    </span>
+                </a>
+                {% if not n.is_read %}
+                <button type="button" class="notif-row-read" data-mark-read="{{ n.id }}" title="Marcar como lida" aria-label="Marcar como lida">
+                    <span class="material-icons">done</span>
+                </button>
+                {% else %}
+                <span class="material-icons notif-row-chevron">chevron_right</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+                <a href="?tab={{ tab }}&page={{ page_obj.previous_page_number }}" class="btn-details">Anterior</a>
+            {% endif %}
+            <span class="pagination-info">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+                <a href="?tab={{ tab }}&page={{ page_obj.next_page_number }}" class="btn-details">Próxima</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <span class="material-icons empty-icon">notifications_none</span>
+            <h3>{% if tab == 'unread' %}Nenhuma notificação não lida{% else %}Nenhuma notificação ainda{% endif %}</h3>
+            <p>Avisos sobre vendas, compras, trocas e comentários aparecerão aqui.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

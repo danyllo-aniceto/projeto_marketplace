@@ -122,6 +122,17 @@
     <div class="listing-form-container">
         <div class="listing-form-card">
 
+            {% if has_active_tx %}
+            <div class="verify-status-card is-pending" style="margin-bottom: 1.25rem; padding: 0.9rem 1.1rem;">
+                <span class="material-icons">info</span>
+                <div>
+                    <strong>Há uma transação em andamento</strong>
+                    <p>Você pode ajustar o estoque normalmente. Evite mudar preço ou tipo enquanto a compra/troca não é concluída.
+                    {% if active_trade %}<a href="{% url 'trade_request_detail' active_trade.id %}" class="seller-link">Ver negociação</a>.{% endif %}</p>
+                </div>
+            </div>
+            {% endif %}
+
             {% if form.non_field_errors %}
             <div class="form-error-summary">
                 <p><strong>Corrija os erros abaixo para continuar:</strong></p>
@@ -208,6 +219,22 @@
                             <div class="field-error">{{ form.condition.errors }}</div>
                         {% endif %}
                     </div>
+                </div>
+
+                <!-- ESTOQUE -->
+                <div class="form-group">
+                    {{ form.stock.label_tag }}
+                    <div class="stock-field">
+                        <button type="button" class="stock-step" data-stock-step="-1" aria-label="Diminuir"><span class="material-icons">remove</span></button>
+                        {{ form.stock }}
+                        <button type="button" class="stock-step" data-stock-step="1" aria-label="Aumentar"><span class="material-icons">add</span></button>
+                        <button type="button" class="stock-step" data-stock-step="5" aria-label="Adicionar 5" style="width:auto;padding:0 0.6rem;">+5</button>
+                        <button type="button" class="stock-step" data-stock-set="0" aria-label="Marcar como esgotado" style="width:auto;padding:0 0.7rem;font-size:0.78rem;">Esgotar</button>
+                    </div>
+                    <p class="stock-field-hint">
+                        Estoque <strong>0</strong> marca o anúncio como esgotado. Aumente para reativá-lo.
+                    </p>
+                    {% if form.stock.errors %}<div class="field-error">{{ form.stock.errors }}</div>{% endif %}
                 </div>
 
                 <!-- ⑤ PREÇO -->
@@ -466,6 +493,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // ---- Stepper de estoque ----
+    const stockInput = document.getElementById('id_stock');
+    document.querySelectorAll('[data-stock-step]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!stockInput) return;
+            const cur = parseInt(stockInput.value, 10) || 0;
+            stockInput.value = Math.max(0, cur + parseInt(btn.dataset.stockStep, 10));
+        });
+    });
+    document.querySelectorAll('[data-stock-set]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!stockInput) return;
+            stockInput.value = parseInt(btn.dataset.stockSet, 10);
+        });
+    });
 });
 </script>
 {% endif %}

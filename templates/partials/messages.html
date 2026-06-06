@@ -1,9 +1,15 @@
 {% if messages %}
-<div class="messages-container" aria-live="polite" aria-atomic="true">
+<div class="toast-container" aria-live="polite" aria-atomic="true">
     {% for message in messages %}
-        <div class="message message-{{ message.tags }}" data-auto-hide="true" role="status">
-            <span class="message-text">{{ message }}</span>
-            <button type="button" class="message-close" aria-label="Fechar mensagem">&times;</button>
+        <div class="toast toast-{{ message.tags }}" data-auto-hide="true" role="status">
+            <span class="toast-icon material-icons">
+                {% if 'success' in message.tags %}check_circle
+                {% elif 'error' in message.tags or 'danger' in message.tags %}error
+                {% elif 'warning' in message.tags %}warning
+                {% else %}info{% endif %}
+            </span>
+            <span class="toast-text">{{ message }}</span>
+            <button type="button" class="toast-close" aria-label="Fechar">&times;</button>
         </div>
     {% endfor %}
 </div>

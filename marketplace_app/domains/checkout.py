@@ -1,11 +1,41 @@
+import json
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.utils.crypto import get_random_string
 from django.shortcuts import redirect, render
 
 from marketplace_app.forms import CheckoutForm
-from marketplace_app.models import Cart, CartItem, Order
+from marketplace_app.models import Cart, CartItem, Order, Address
 from marketplace_app.view_helpers import process_buy_checkout, process_trade_only
+from marketplace_app.shipping import SHIPPING_INFO, calculate_shipping
+
+
+def _saved_addresses_payload(user):
+    """Lista de endereços salvos + JSON para preencher o formulário via JS."""
+    addresses = list(Address.objects.filter(user=user))
+    payload = json.dumps([
+        {
+            'id': a.id,
+            'label': a.label or 'Endereço',
+            'recipient_name': a.recipient_name,
+            'recipient_phone': a.recipient_phone,
+            'postal_code': a.postal_code,
+            'street': a.street,
+            'number': a.number,
+            'complement': a.complement,
+            'neighborhood': a.neighborhood,
+            'city': a.city,
+            'state': a.state,
+            'is_default': a.is_default,
+        }
+        for a in addresses
+    ])
+    return addresses, payload
+
+
+def _shipping_costs_json():
+    return json.dumps({method: float(info['cost']) for method, info in SHIPPING_INFO.items()})
 
 
 CHECKOUT_SESSION_KEY = 'checkout_pending_purchase'
@@ -98,30 +128,49 @@ def checkout_view(request):
             form = CheckoutForm(request.POST)
             if form.is_valid():
                 _store_pending_checkout(request, form, purchase_items, [])
+                subtotal = sum(item.listing.price for item in purchase_items)
+                shipping_cost = calculate_shipping(form.cleaned_data['delivery_method'])
+                saved_addresses, addresses_json = _saved_addresses_payload(request.user)
                 return render(request, 'marketplace_app/checkout.html', {
                     'form': form,
                     'buy_items': purchase_items,
                     'trade_items': trade_only_items,
-                    'total': sum(item.listing.price for item in purchase_items),
+                    'subtotal': subtotal,
+                    'shipping_cost': shipping_cost,
+                    'total': subtotal + shipping_cost,
                     'show_qr_simulation': True,
                     'qr_pattern': SIMULATED_QR_PATTERN,
                     'qr_token': request.session[CHECKOUT_SESSION_KEY]['token'],
+                    'saved_addresses': saved_addresses,
+                    'addresses_json': addresses_json,
+                    'shipping_costs_json': _shipping_costs_json(),
                 })
     else:
         form = CheckoutForm(initial={'delivery_method': Order.TO_AGREE})
 
+    subtotal = sum(item.listing.price for item in purchase_items)
+    shipping_cost = 0
     if pending_checkout and purchase_items:
         form = CheckoutForm(pending_checkout.get('form_data', {}))
         show_qr_simulation = True
+        if form.is_valid():
+            shipping_cost = calculate_shipping(form.cleaned_data['delivery_method'])
     else:
         show_qr_simulation = False
+
+    saved_addresses, addresses_json = _saved_addresses_payload(request.user)
 
     return render(request, 'marketplace_app/checkout.html', {
         'form': form,
         'buy_items': purchase_items,
         'trade_items': trade_only_items,
-        'total': sum(item.listing.price for item in purchase_items),
+        'subtotal': subtotal,
+        'shipping_cost': shipping_cost,
+        'total': subtotal + shipping_cost,
         'show_qr_simulation': show_qr_simulation,
         'qr_pattern': SIMULATED_QR_PATTERN if show_qr_simulation else [],
         'qr_token': pending_checkout['token'] if pending_checkout else '',
+        'saved_addresses': saved_addresses,
+        'addresses_json': addresses_json,
+        'shipping_costs_json': _shipping_costs_json(),
     })

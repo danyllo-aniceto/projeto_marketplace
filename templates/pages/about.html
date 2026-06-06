@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Sobre — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="doc-page">
+        <div class="doc-hero">
+            <span class="hero-badge"><span class="material-icons">school</span> Projeto Acadêmico</span>
+            <h1>Sobre o Tech Hub</h1>
+            <p>Marketplace de componentes e produtos de tecnologia, com foco em <strong>compra, venda e troca</strong> entre pessoas e lojas.</p>
+        </div>
+
+        <div class="doc-section">
+            <h2><span class="material-icons">info</span> O projeto</h2>
+            <p>
+                O Tech Hub é um projeto desenvolvido para a faculdade, com o objetivo de aplicar conceitos
+                de desenvolvimento web full-stack: autenticação e perfis (PF e lojas), CRUD de anúncios,
+                carrinho, checkout simulado, um fluxo completo de <strong>troca com negociação</strong>,
+                notificações, controle de estoque, e um painel financeiro.
+            </p>
+            <p>
+                O pagamento é <strong>simulado</strong> (QR Code ilustrativo) — nenhuma transação real é
+                processada. O diferencial do projeto é o sistema de trocas entre usuários.
+            </p>
+        </div>
+
+        <div class="doc-section">
+            <h2><span class="material-icons">groups</span> Autores</h2>
+            <!-- Edite os nomes e links do LinkedIn dos integrantes do grupo. -->
+            <div class="author-grid">
+                <div class="author-card">
+                    <span class="material-icons author-avatar">person</span>
+                    <strong>Danyllo Aniceto</strong>
+                    <span>Desenvolvimento</span>
+                    <a href="https://www.linkedin.com/in/danyllo-aniceto-564610267/" target="_blank" rel="noopener" class="author-link">
+                        <span class="material-icons">link</span> LinkedIn
+                    </a>
+                </div>
+                <div class="author-card">
+                    <span class="material-icons author-avatar">person</span>
+                    <strong>Davi Amaral</strong>
+                    <span>Desenvolvimento</span>
+                    <a href="https://www.linkedin.com/in/davi-amaral-34b668169/" target="_blank" rel="noopener" class="author-link">
+                        <span class="material-icons">link</span> LinkedIn
+                    </a>
+                </div>
+                <div class="author-card">
+                    <span class="material-icons author-avatar">person</span>
+                    <strong>Matheus Barbosa</strong>
+                    <span>Desenvolvimento</span>
+                    <a href="https://www.linkedin.com/in/matheusbarbosa00/" target="_blank" rel="noopener" class="author-link">
+                        <span class="material-icons">link</span> LinkedIn
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="doc-section">
+            <h2><span class="material-icons">code</span> Tecnologias</h2>
+            <div class="tech-chips">
+                <span>Python</span><span>Django</span><span>PostgreSQL</span>
+                <span>HTML</span><span>CSS</span><span>JavaScript</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}Moderação — Usuários{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">group</span> Usuários</h2>
+    </div>
+
+    <div class="mod-subnav">
+        <a href="{% url 'moderation_panel' %}" class="mod-subnav-link">Verificações & Denúncias</a>
+        <a href="{% url 'mod_users' %}" class="mod-subnav-link active">Usuários</a>
+        <a href="{% url 'mod_listings' %}" class="mod-subnav-link">Anúncios</a>
+    </div>
+
+    <form method="get" class="store-search">
+        <span class="material-icons">search</span>
+        <input type="text" name="q" value="{{ search }}" placeholder="Buscar por usuário ou e-mail">
+        <button type="submit" class="btn-primary">Buscar</button>
+    </form>
+
+    {% if page_obj.object_list %}
+    <div class="mod-table">
+        {% for u in page_obj %}
+        <div class="mod-user-row {% if not u.is_active %}is-banned{% endif %}">
+            <div class="mod-user-info">
+                <strong>{{ u.username }}</strong>
+                {% if u.is_superuser %}<span class="badge badge-info">admin</span>
+                {% elif u.is_store %}<span class="badge badge-info">loja</span>{% endif %}
+                {% if not u.is_active %}<span class="badge badge-rejected">banido</span>{% endif %}
+                {% if u.strikes %}<span class="badge badge-pending">{{ u.strikes }} strike{{ u.strikes|pluralize:"s" }}</span>{% endif %}
+                <span class="mod-user-meta">{{ u.email|default:'sem e-mail' }} · desde {{ u.date_joined|date:'d/m/Y' }}</span>
+            </div>
+            {% if not u.is_superuser %}
+            <div class="mod-user-actions">
+                {% if u.is_active %}
+                <form method="post" action="{% url 'mod_user' u.id %}" style="margin:0;" onsubmit="return confirm('Banir {{ u.username|escapejs }} e remover anúncios?');">
+                    {% csrf_token %}<input type="hidden" name="action" value="ban">
+                    <button type="submit" class="btn-danger">Banir</button>
+                </form>
+                {% else %}
+                <form method="post" action="{% url 'mod_user' u.id %}" style="margin:0;">
+                    {% csrf_token %}<input type="hidden" name="action" value="reactivate">
+                    <button type="submit" class="btn-secondary">Reativar</button>
+                </form>
+                {% endif %}
+                {% if u.strikes %}
+                <form method="post" action="{% url 'mod_user' u.id %}" style="margin:0;">
+                    {% csrf_token %}<input type="hidden" name="action" value="reset_strikes">
+                    <button type="submit" class="btn-details">Zerar strikes</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn-details">Anterior</a>{% endif %}
+        <span class="pagination-info">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn-details">Próxima</a>{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+        <div class="empty-state"><span class="material-icons empty-icon">group</span><h3>Nenhum usuário encontrado</h3></div>
+    {% endif %}
+</div>
+{% endblock %}

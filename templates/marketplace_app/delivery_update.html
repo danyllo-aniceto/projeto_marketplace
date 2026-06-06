@@ -6,14 +6,6 @@
 <div class="container">
     <h2 class="section-title"><span class="material-icons">local_shipping</span> Entrega do Pedido #{{ order.id }}</h2>
 
-    {% if messages %}
-        <div class="alert-container" style="margin-bottom: 1rem;">
-            {% for message in messages %}
-                <div class="alert-message {{ message.tags }}" style="margin-bottom: 0.75rem;">{{ message }}</div>
-            {% endfor %}
-        </div>
-    {% endif %}
-
     <div class="summary-card">
         <p><strong>Pedido:</strong> #{{ order.id }}</p>
         <p><strong>Status atual:</strong> {{ delivery.get_status_display }}</p>
@@ -28,12 +20,12 @@
                 <div class="form-group">
                     {{ form.method.label_tag }}
                     {{ form.method }}
-                    {% if form.method.errors %}<div class="error-message">{{ form.method.errors }}</div>{% endif %}
+                    {% if form.method.errors %}<div class="field-error">{{ form.method.errors }}</div>{% endif %}
                 </div>
                 <div class="form-group">
                     {{ form.shipping_cost.label_tag }}
                     {{ form.shipping_cost }}
-                    {% if form.shipping_cost.errors %}<div class="error-message">{{ form.shipping_cost.errors }}</div>{% endif %}
+                    {% if form.shipping_cost.errors %}<div class="field-error">{{ form.shipping_cost.errors }}</div>{% endif %}
                 </div>
             </div>
             <div class="form-row">
@@ -107,4 +99,8 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% include 'partials/address_masks.html' %}
 {% endblock %}

@@ -82,9 +82,20 @@
                     <span class="checkout-order-price">R$ {{ item.listing.price|floatformat:2 }}</span>
                 </div>
                 {% endfor %}
-                <div style="display: flex; justify-content: space-between; padding: 0.75rem 0 0; border-top: 1px solid var(--border-color); margin-top: 0.25rem;">
-                    <strong style="color: var(--text-white);">Total</strong>
-                    <strong style="color: var(--accent-cyan); font-size: 1.15rem;">R$ {{ total|floatformat:2 }}</strong>
+
+                <div class="checkout-totals" style="border-top: 1px solid var(--border-color); margin-top: 0.5rem; padding-top: 0.75rem;">
+                    <div class="checkout-total-line">
+                        <span>Subtotal</span>
+                        <span>R$ {{ subtotal|floatformat:2 }}</span>
+                    </div>
+                    <div class="checkout-total-line">
+                        <span>Frete</span>
+                        <span id="checkout-frete" data-subtotal="{{ subtotal|stringformat:'.2f' }}">R$ {{ shipping_cost|floatformat:2 }}</span>
+                    </div>
+                    <div class="checkout-total-line checkout-total-final">
+                        <strong>Total</strong>
+                        <strong id="checkout-total">R$ {{ total|floatformat:2 }}</strong>
+                    </div>
                 </div>
             </div>
 
@@ -176,9 +187,20 @@
                     <span class="checkout-order-price">R$ {{ item.listing.price|floatformat:2 }}</span>
                 </div>
                 {% endfor %}
-                <div style="display: flex; justify-content: space-between; padding: 0.75rem 0 0; border-top: 1px solid var(--border-color); margin-top: 0.25rem;">
-                    <strong style="color: var(--text-white);">Total</strong>
-                    <strong style="color: var(--accent-cyan); font-size: 1.15rem;">R$ {{ total|floatformat:2 }}</strong>
+
+                <div class="checkout-totals" style="border-top: 1px solid var(--border-color); margin-top: 0.5rem; padding-top: 0.75rem;">
+                    <div class="checkout-total-line">
+                        <span>Subtotal</span>
+                        <span>R$ {{ subtotal|floatformat:2 }}</span>
+                    </div>
+                    <div class="checkout-total-line">
+                        <span>Frete</span>
+                        <span id="checkout-frete" data-subtotal="{{ subtotal|stringformat:'.2f' }}">R$ {{ shipping_cost|floatformat:2 }}</span>
+                    </div>
+                    <div class="checkout-total-line checkout-total-final">
+                        <strong>Total</strong>
+                        <strong id="checkout-total">R$ {{ total|floatformat:2 }}</strong>
+                    </div>
                 </div>
             </div>
 
@@ -269,25 +291,25 @@
                     <span class="material-icons">local_shipping</span> Forma de entrega
                 </p>
                 <div class="checkout-method-cards" id="delivery-cards">
-                    <div class="checkout-method-card {% if form.delivery_method.value == 'pickup' %}selected{% endif %}" data-group="delivery" data-value="pickup" role="button" tabindex="0">
+                    <div class="checkout-method-card {% if form.delivery_method.value == 'pickup' %}selected{% endif %}" data-group="delivery" data-value="pickup" data-freight="0.00" role="button" tabindex="0">
                         <span class="material-icons">store</span>
                         <strong>Retirada</strong>
-                        <p>Presencial</p>
+                        <p>Grátis</p>
                     </div>
-                    <div class="checkout-method-card {% if form.delivery_method.value == 'seller_shipping' %}selected{% endif %}" data-group="delivery" data-value="seller_shipping" role="button" tabindex="0">
+                    <div class="checkout-method-card {% if form.delivery_method.value == 'seller_shipping' %}selected{% endif %}" data-group="delivery" data-value="seller_shipping" data-freight="19.90" role="button" tabindex="0">
                         <span class="material-icons">local_shipping</span>
-                        <strong>Frete</strong>
-                        <p>Pelo vendedor</p>
+                        <strong>Vendedor</strong>
+                        <p>R$ 19,90</p>
                     </div>
-                    <div class="checkout-method-card {% if form.delivery_method.value == 'platform_shipping' %}selected{% endif %}" data-group="delivery" data-value="platform_shipping" role="button" tabindex="0">
+                    <div class="checkout-method-card {% if form.delivery_method.value == 'platform_shipping' %}selected{% endif %}" data-group="delivery" data-value="platform_shipping" data-freight="29.90" role="button" tabindex="0">
                         <span class="material-icons">inventory_2</span>
                         <strong>Correios</strong>
-                        <p>Plataforma</p>
+                        <p>R$ 29,90</p>
                     </div>
-                    <div class="checkout-method-card {% if form.delivery_method.value == 'to_agree' or not form.delivery_method.value %}selected{% endif %}" data-group="delivery" data-value="to_agree" role="button" tabindex="0">
+                    <div class="checkout-method-card {% if form.delivery_method.value == 'to_agree' or not form.delivery_method.value %}selected{% endif %}" data-group="delivery" data-value="to_agree" data-freight="0.00" role="button" tabindex="0">
                         <span class="material-icons">handshake</span>
                         <strong>A combinar</strong>
-                        <p>Com vendedor</p>
+                        <p>Frete depois</p>
                     </div>
                 </div>
                 <div style="display:none;">{{ form.delivery_method }}</div>
@@ -318,6 +340,25 @@
         <h3>
             <span class="material-icons">location_on</span> Endereço de entrega
         </h3>
+
+        {% if saved_addresses %}
+        <div class="saved-address-picker" id="saved-address-picker">
+            <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.25rem;">Usar um endereço salvo:</p>
+            {% for a in saved_addresses %}
+            <div class="saved-address-option" data-address-id="{{ a.id }}" role="button" tabindex="0">
+                <span class="material-icons">{% if a.is_default %}home{% else %}place{% endif %}</span>
+                <div class="saved-address-info">
+                    <strong>{{ a.label|default:"Endereço" }}{% if a.is_default %} · padrão{% endif %}</strong>
+                    <span>{{ a.short }}</span>
+                </div>
+            </div>
+            {% endfor %}
+            <div class="saved-address-option" data-address-id="new" role="button" tabindex="0">
+                <span class="material-icons">add</span>
+                <div class="saved-address-info"><strong>Usar um novo endereço</strong><span>Preencher manualmente</span></div>
+            </div>
+        </div>
+        {% endif %}
 
         <div class="checkout-address-grid">
             <div class="form-group col-2">
@@ -457,10 +498,73 @@ document.addEventListener('DOMContentLoaded', () => {
         if (addressHint)    addressHint.style.display    = isPickup ? 'none' : '';
     }
 
+    // ---- Frete ao vivo ----
+    const freteEl = document.getElementById('checkout-frete');
+    const totalEl = document.getElementById('checkout-total');
+
+    function fmtBRL(value) {
+        return 'R$ ' + value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function updateFreight() {
+        if (!freteEl || !totalEl || !deliverySelect) return;
+        const card = document.querySelector('.checkout-method-card[data-group="delivery"][data-value="' + deliverySelect.value + '"]');
+        const freight = card ? parseFloat(card.dataset.freight || '0') : 0;
+        const subtotal = parseFloat(freteEl.dataset.subtotal || '0');
+        freteEl.textContent = freight > 0 ? fmtBRL(freight) : 'Grátis';
+        totalEl.textContent = fmtBRL(subtotal + freight);
+    }
+
     if (deliverySelect) {
-        deliverySelect.addEventListener('change', toggleAddress);
+        deliverySelect.addEventListener('change', () => { toggleAddress(); updateFreight(); });
         toggleAddress();
+        updateFreight();
+    }
+
+    // ---- Preencher endereço a partir de um endereço salvo ----
+    const savedAddresses = {{ addresses_json|default:"[]"|safe }};
+    const picker = document.getElementById('saved-address-picker');
+    if (picker && savedAddresses.length) {
+        const fieldMap = {
+            recipient_name: 'id_recipient_name',
+            recipient_phone: 'id_recipient_phone',
+            postal_code: 'id_postal_code',
+            street: 'id_street',
+            number: 'id_number',
+            complement: 'id_complement',
+            neighborhood: 'id_neighborhood',
+            city: 'id_city',
+            state: 'id_state',
+        };
+        const setField = (name, val) => {
+            const el = document.getElementById(fieldMap[name]);
+            if (el) el.value = val || '';
+        };
+        picker.querySelectorAll('.saved-address-option').forEach(opt => {
+            const select = () => {
+                picker.querySelectorAll('.saved-address-option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                const id = opt.dataset.addressId;
+                if (id === 'new') {
+                    Object.keys(fieldMap).forEach(k => setField(k, ''));
+                    return;
+                }
+                const addr = savedAddresses.find(a => String(a.id) === String(id));
+                if (addr) Object.keys(fieldMap).forEach(k => setField(k, addr[k]));
+            };
+            opt.addEventListener('click', select);
+            opt.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(); } });
+        });
+
+        // Pré-seleciona o padrão se os campos estiverem vazios
+        const nameField = document.getElementById('id_recipient_name');
+        if (nameField && !nameField.value) {
+            const def = savedAddresses.find(a => a.is_default) || savedAddresses[0];
+            const defOpt = picker.querySelector('.saved-address-option[data-address-id="' + def.id + '"]');
+            if (defOpt) defOpt.click();
+        }
     }
 });
 </script>
+{% include 'partials/address_masks.html' %}
 {% endblock %}

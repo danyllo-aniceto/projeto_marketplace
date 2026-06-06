@@ -7,7 +7,9 @@ from django.db import transaction
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.utils.dateparse import parse_date
 
-from .models import Order, OrderItem, Delivery, PaymentTransaction, TradeProposal, TradeRequest, CartItem
+from .models import Order, OrderItem, Delivery, PaymentTransaction, TradeProposal, TradeRequest, CartItem, Notification, Listing
+from .notifications import notify
+from .shipping import calculate_shipping
 
 
 def create_mercado_pago_preference(request, order, order_items):
@@ -66,7 +68,7 @@ def process_buy_checkout(request, user, buy_items, form):
             total_amount=0,
         )
 
-        order_total = 0
+        items_total = 0
         for item in buy_items:
             OrderItem.objects.create(
                 order=order,
@@ -76,8 +78,17 @@ def process_buy_checkout(request, user, buy_items, form):
                 unit_price_snapshot=item.listing.price,
                 quantity=1,
             )
-            order_total += item.listing.price
+            items_total += item.listing.price
 
+            # Decrementa o estoque; esgota o anúncio quando chega a zero.
+            listing = Listing.objects.select_for_update().get(pk=item.listing_id)
+            listing.stock = max(0, listing.stock - 1)
+            if listing.stock == 0:
+                listing.status = Listing.SOLD
+            Listing.objects.filter(pk=listing.pk).update(stock=listing.stock, status=listing.status)
+
+        shipping_cost = calculate_shipping(form.cleaned_data['delivery_method'])
+        order_total = items_total + shipping_cost
         order.total_amount = order_total
         order.save(update_fields=['total_amount'])
 
@@ -93,6 +104,7 @@ def process_buy_checkout(request, user, buy_items, form):
             neighborhood=form.cleaned_data['neighborhood'],
             city=form.cleaned_data['city'],
             state=form.cleaned_data['state'].upper(),
+            shipping_cost=shipping_cost,
             notes=form.cleaned_data['notes'],
         )
 
@@ -110,6 +122,23 @@ def process_buy_checkout(request, user, buy_items, form):
         if buy_items:
             CartItem.objects.filter(pk__in=[item.pk for item in buy_items]).delete()
 
+        # Notifica cada vendedor sobre a nova venda.
+        order_url = reverse('order_detail', args=[order.pk])
+        sellers_seen = set()
+        for item in order.items.all():
+            if item.seller_id in sellers_seen:
+                continue
+            sellers_seen.add(item.seller_id)
+            notify(
+                item.seller,
+                'Novo pedido recebido',
+                f'{user.username} comprou "{item.title_snapshot}". Confirme o envio.',
+                url=order_url,
+                category=Notification.SALE,
+                icon='sell',
+                actor=user,
+            )
+
         return order, payment_transaction
 
 
@@ -126,6 +155,16 @@ def process_trade_only(user, trade_items):
             # Do not auto-create an initial empty proposal here. The first proposal
             # should be created explicitly by the user on the trade detail page.
             created_trade_requests.append(trade_request)
+
+            notify(
+                item.listing.seller,
+                'Nova solicitação de troca',
+                f'{user.username} quer trocar pelo seu anúncio "{item.listing.title}".',
+                url=reverse('trade_request_detail', args=[trade_request.pk]),
+                category=Notification.TRADE,
+                icon='handshake',
+                actor=user,
+            )
 
         if trade_items:
             CartItem.objects.filter(pk__in=[item.pk for item in trade_items]).delete()

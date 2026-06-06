@@ -15,22 +15,82 @@
     <div class="page-header">
         <h2 class="section-title"><span class="material-icons">receipt_long</span> Pedido #{{ order.id }}</h2>
         <div class="page-header-actions">
-            {% if order.status == 'paid' or order.status == 'completed' or order.status == 'delivered' %}
-                <span class="badge badge-approved" style="font-size: 0.9rem; padding: 0.45rem 1rem;">{{ order.get_status_display }}</span>
+            {% if order.status == 'completed' %}
+                <span class="badge badge-approved" style="font-size: 0.9rem; padding: 0.45rem 1rem;">Concluído</span>
+            {% elif order.status == 'paid' %}
+                <span class="badge badge-pending" style="font-size: 0.9rem; padding: 0.45rem 1rem;">Em andamento</span>
             {% elif order.status == 'cancelled' %}
-                <span class="badge badge-rejected" style="font-size: 0.9rem; padding: 0.45rem 1rem;">{{ order.get_status_display }}</span>
-            {% elif order.status == 'pending_payment' %}
-                <span class="badge badge-pending" style="font-size: 0.9rem; padding: 0.45rem 1rem;">{{ order.get_status_display }}</span>
+                <span class="badge badge-rejected" style="font-size: 0.9rem; padding: 0.45rem 1rem;">Cancelado</span>
             {% else %}
                 <span class="badge badge-info" style="font-size: 0.9rem; padding: 0.45rem 1rem;">{{ order.get_status_display }}</span>
             {% endif %}
         </div>
     </div>
 
+    {% if is_seller and not is_buyer %}
+    <p style="color: var(--text-muted); font-size: 0.88rem; margin: -0.5rem 0 1rem; display: flex; align-items: center; gap: 0.35rem;">
+        <span class="material-icons" style="font-size: 16px;">storefront</span>
+        Você está vendo este pedido como <strong style="color: var(--text-white);">vendedor</strong>. Confirme o envio dos seus itens abaixo.
+    </p>
+    {% endif %}
+
     <div class="cart-grid">
         <div class="cart-items">
+
+            <!-- ITENS DO PEDIDO com status e ações -->
             <div class="summary-card">
-                <h3><span class="material-icons">info</span> Resumo do pedido</h3>
+                <h3><span class="material-icons">shopping_bag</span> Itens do pedido</h3>
+                {% for item in items %}
+                <div class="order-item-row">
+                    <div class="order-item-thumb">
+                        {% if item.listing.images.all %}
+                            <img src="{{ item.listing.images.first.image.url }}" alt="{{ item.title_snapshot }}">
+                        {% else %}
+                            <span class="material-icons">devices</span>
+                        {% endif %}
+                    </div>
+                    <div class="order-item-info">
+                        <p class="order-item-title">{{ item.title_snapshot }}</p>
+                        <p class="order-item-meta">
+                            {% if is_buyer %}Vendedor: {{ item.seller.username }}{% else %}Comprador: {{ order.buyer.username }}{% endif %}
+                            · R$ {{ item.unit_price_snapshot|floatformat:2 }}
+                        </p>
+                        <div class="order-item-status">
+                            {% if item.status == 'received' %}
+                                <span class="badge badge-approved"><span class="material-icons">check_circle</span> Recebido</span>
+                            {% elif item.status == 'shipped' %}
+                                <span class="badge badge-info"><span class="material-icons">local_shipping</span> A caminho</span>
+                            {% else %}
+                                <span class="badge badge-pending"><span class="material-icons">inventory_2</span> Aguardando envio</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- AÇÕES -->
+                        {% if order.status == 'paid' %}
+                            {% if item.id in seller_item_ids and item.status == 'pending_shipment' %}
+                            <form method="post" action="{% url 'confirm_shipment' order.id item.id %}" style="margin: 0.5rem 0 0;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-secondary order-item-action">Confirmar envio</button>
+                            </form>
+                            {% elif is_buyer and item.status == 'shipped' %}
+                            <form method="post" action="{% url 'confirm_receipt' order.id item.id %}" style="margin: 0.5rem 0 0;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-secondary order-item-action">Confirmar recebimento</button>
+                            </form>
+                            {% elif is_buyer and item.status == 'pending_shipment' %}
+                            <p class="order-item-hint">Aguardando o vendedor enviar.</p>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">Nenhum item encontrado.</p>
+                {% endfor %}
+            </div>
+
+            <!-- RESUMO -->
+            <div class="summary-card" style="margin-top: 1.25rem;">
+                <h3><span class="material-icons">info</span> Resumo</h3>
                 <div style="display: flex; flex-direction: column; gap: 0;">
                     <div class="info-row">
                         <span class="material-icons">payments</span>
@@ -41,6 +101,16 @@
                         <span class="material-icons">local_shipping</span>
                         <strong>Entrega</strong>
                         <span>{{ order.get_delivery_method_display }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="material-icons">receipt</span>
+                        <strong>Subtotal</strong>
+                        <span>R$ {{ items_total|floatformat:2 }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="material-icons">local_shipping</span>
+                        <strong>Frete</strong>
+                        <span>{% if shipping_cost %}R$ {{ shipping_cost|floatformat:2 }}{% else %}Grátis{% endif %}</span>
                     </div>
                     <div class="info-row">
                         <span class="material-icons">attach_money</span>
@@ -54,39 +124,12 @@
                         <span>{{ order.notes }}</span>
                     </div>
                     {% endif %}
-                    {% if payment_transaction %}
-                    <div class="info-row">
-                        <span class="material-icons">credit_card</span>
-                        <strong>Status pgto.</strong>
-                        <span>{{ payment_transaction.get_status_display }}</span>
-                    </div>
-                    {% if payment_transaction.checkout_url %}
-                    <div class="info-row" style="border: 0; padding-top: 0.75rem;">
-                        <a href="{{ payment_transaction.checkout_url }}" class="btn-details">
-                            <span class="material-icons">open_in_new</span> Abrir pagamento
-                        </a>
-                    </div>
-                    {% endif %}
-                    {% endif %}
                 </div>
-            </div>
-
-            <div class="summary-card" style="margin-top: 1.25rem;">
-                <h3><span class="material-icons">shopping_bag</span> Itens do pedido</h3>
-                {% for item in order.items.all %}
-                    <div class="checkout-item-row">
-                        <span class="checkout-item-name">{{ item.title_snapshot }}</span>
-                        <span style="color: var(--text-muted); font-size: 0.85rem; white-space: nowrap;">{{ item.seller.username }}</span>
-                        <strong style="color: var(--accent-cyan); white-space: nowrap;">R$ {{ item.unit_price_snapshot|floatformat:2 }}</strong>
-                    </div>
-                {% empty %}
-                    <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0;">Nenhum item encontrado.</p>
-                {% endfor %}
             </div>
 
             {% if delivery %}
             <div class="summary-card" style="margin-top: 1.25rem;">
-                <h3><span class="material-icons">local_shipping</span> Informações de entrega</h3>
+                <h3><span class="material-icons">location_on</span> Endereço de entrega</h3>
                 <div style="display: flex; flex-direction: column; gap: 0;">
                     <div class="info-row">
                         <span class="material-icons">person</span>
@@ -94,7 +137,7 @@
                         <span>{{ delivery.recipient_name }}</span>
                     </div>
                     <div class="info-row">
-                        <span class="material-icons">location_on</span>
+                        <span class="material-icons">home</span>
                         <strong>Endereço</strong>
                         <span>{{ delivery.street }}, {{ delivery.number }}{% if delivery.complement %} — {{ delivery.complement }}{% endif %}, {{ delivery.neighborhood }}, {{ delivery.city }} — {{ delivery.state }}</span>
                     </div>
@@ -103,18 +146,6 @@
                         <strong>CEP</strong>
                         <span>{{ delivery.postal_code }}</span>
                     </div>
-                    <div class="info-row">
-                        <span class="material-icons">local_atm</span>
-                        <strong>Frete</strong>
-                        <span>R$ {{ delivery.shipping_cost|floatformat:2 }}</span>
-                    </div>
-                    {% if delivery.carrier_name %}
-                    <div class="info-row">
-                        <span class="material-icons">airport_shuttle</span>
-                        <strong>Transportadora</strong>
-                        <span>{{ delivery.carrier_name }}</span>
-                    </div>
-                    {% endif %}
                     {% if delivery.tracking_code %}
                     <div class="info-row">
                         <span class="material-icons">track_changes</span>
@@ -122,48 +153,62 @@
                         <span>{{ delivery.tracking_code }}</span>
                     </div>
                     {% endif %}
-                    {% if delivery.estimated_delivery_date %}
-                    <div class="info-row">
-                        <span class="material-icons">event</span>
-                        <strong>Previsão</strong>
-                        <span>{{ delivery.estimated_delivery_date|date:'d/m/Y' }}</span>
-                    </div>
-                    {% endif %}
-                    {% if delivery.notes %}
-                    <div class="info-row">
-                        <span class="material-icons">notes</span>
-                        <strong>Notas</strong>
-                        <span>{{ delivery.notes }}</span>
-                    </div>
-                    {% endif %}
                 </div>
                 {% if user.is_staff %}
                     <div style="margin-top: 0.75rem;">
-                        <a href="{% url 'delivery_update' order.id %}" class="btn-secondary">
-                            <span class="material-icons">edit</span> Atualizar entrega
-                        </a>
+                        <a href="{% url 'delivery_update' order.id %}" class="btn-details" style="width: auto;">Atualizar entrega (admin)</a>
                     </div>
                 {% endif %}
             </div>
             {% endif %}
         </div>
 
+        <!-- SIDEBAR: status do fluxo -->
         <div class="cart-summary">
             <div class="summary-card">
-                <h3><span class="material-icons">info</span> Próximos passos</h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin: 0;">
-                    Este pedido já foi registrado. Acompanhe o status acima.
+                <h3><span class="material-icons">checklist</span> Andamento</h3>
+
+                <div class="order-flow">
+                    <div class="order-flow-step done">
+                        <span class="order-flow-dot"><span class="material-icons">check</span></span>
+                        <div>
+                            <strong>Pagamento confirmado</strong>
+                            <span>{{ order.created_at|date:'d/m/Y H:i' }}</span>
+                        </div>
+                    </div>
+                    <div class="order-flow-step {% if order.status == 'completed' or delivery.status == 'in_transit' or delivery.status == 'delivered' %}done{% else %}pending{% endif %}">
+                        <span class="order-flow-dot"><span class="material-icons">local_shipping</span></span>
+                        <div>
+                            <strong>Envio pelo vendedor</strong>
+                            <span>{% if order.status == 'completed' or delivery.status == 'in_transit' or delivery.status == 'delivered' %}Em andamento ou concluído{% else %}Aguardando{% endif %}</span>
+                        </div>
+                    </div>
+                    <div class="order-flow-step {% if order.status == 'completed' %}done{% else %}pending{% endif %}">
+                        <span class="order-flow-dot"><span class="material-icons">check_circle</span></span>
+                        <div>
+                            <strong>Recebimento pelo comprador</strong>
+                            <span>{% if order.status == 'completed' %}Pedido concluído{% else %}Pendente{% endif %}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {% if order.status == 'completed' %}
+                <div class="waiting-message" style="border-color: rgba(0,255,136,0.2); background: rgba(0,255,136,0.04); color: var(--text-gray); margin-top: 1rem;">
+                    <span class="material-icons" style="color: var(--success-color);">verified</span>
+                    <span>Pedido concluído. Registro disponível no histórico.</span>
+                </div>
+                {% elif is_seller and not is_buyer %}
+                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 1rem 0 0;">
+                    Confirme o envio dos seus itens. O comprador confirmará o recebimento.
                 </p>
-                <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem;">
-                    <a href="{% url 'orders' %}" class="btn-details">
-                        <span class="material-icons">arrow_back</span> Meus pedidos
-                    </a>
-                    <a href="{% url 'trade_requests' %}" class="btn-primary">
-                        <span class="material-icons">compare_arrows</span> Ver trocas
-                    </a>
-                    <a href="{% url 'home' %}" class="btn-primary" style="margin-top: 0.25rem;">
-                        <span class="material-icons">store</span> Continuar comprando
-                    </a>
+                {% elif is_buyer %}
+                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin: 1rem 0 0;">
+                    Quando receber os itens, confirme o recebimento para concluir o pedido.
+                </p>
+                {% endif %}
+
+                <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
+                    <a href="{% url 'orders' %}" class="btn-details">Voltar aos pedidos</a>
                 </div>
             </div>
         </div>

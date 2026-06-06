@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}Moderação — Anúncios{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">inventory_2</span> Anúncios</h2>
+    </div>
+
+    <div class="mod-subnav">
+        <a href="{% url 'moderation_panel' %}" class="mod-subnav-link">Verificações & Denúncias</a>
+        <a href="{% url 'mod_users' %}" class="mod-subnav-link">Usuários</a>
+        <a href="{% url 'mod_listings' %}" class="mod-subnav-link active">Anúncios</a>
+    </div>
+
+    <form method="get" class="store-search">
+        <span class="material-icons">search</span>
+        <input type="text" name="q" value="{{ search }}" placeholder="Buscar por título, vendedor ou categoria">
+        <button type="submit" class="btn-primary">Buscar</button>
+    </form>
+
+    {% if page_obj.object_list %}
+    <div class="mod-table">
+        {% for l in page_obj %}
+        <div class="mod-user-row">
+            <div class="mod-user-info">
+                <strong><a href="{% url 'listing_detail' l.id %}" class="seller-link" target="_blank">{{ l.title }}</a></strong>
+                {% if l.is_sold_out %}<span class="badge badge-rejected">esgotado</span>{% endif %}
+                <span class="mod-user-meta">{{ l.seller.username }} · {{ l.category.name }} · {{ l.get_listing_type_display }}</span>
+            </div>
+            <div class="mod-user-actions">
+                <form method="post" action="{% url 'mod_delete_listing' l.id %}" style="margin:0; display:flex; gap:0.4rem; flex-wrap:wrap;"
+                      onsubmit="return confirm('Excluir este anúncio? O vendedor será notificado e levará um strike.');">
+                    {% csrf_token %}
+                    <input type="text" name="reason" placeholder="Motivo (opcional)" class="form-control" style="width:auto; min-width:160px;">
+                    <button type="submit" class="btn-danger">Excluir</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn-details">Anterior</a>{% endif %}
+        <span class="pagination-info">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if search %}&q={{ search|urlencode }}{% endif %}" class="btn-details">Próxima</a>{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+        <div class="empty-state"><span class="material-icons empty-icon">inventory_2</span><h3>Nenhum anúncio encontrado</h3></div>
+    {% endif %}
+</div>
+{% endblock %}

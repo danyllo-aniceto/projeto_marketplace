@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if mode == 'edit' %}Editar endereço{% else %}Novo endereço{% endif %} — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <nav class="breadcrumb">
+        <a href="{% url 'addresses' %}">Meus endereços</a>
+        <span class="material-icons">chevron_right</span>
+        <span class="breadcrumb-current">{% if mode == 'edit' %}Editar{% else %}Novo{% endif %}</span>
+    </nav>
+
+    <div class="listing-page-header">
+        <a href="{% url 'addresses' %}" class="listing-back-link" aria-label="Voltar">
+            <span class="material-icons">arrow_back</span>
+        </a>
+        <h2 class="section-title listing-page-title">
+            <span class="material-icons">{% if mode == 'edit' %}edit_location{% else %}add_location{% endif %}</span>
+            {% if mode == 'edit' %}Editar endereço{% else %}Novo endereço{% endif %}
+        </h2>
+    </div>
+
+    <div style="max-width: 720px;">
+        <div class="listing-form-card">
+            {% if form.non_field_errors %}
+            <div class="form-error-summary">
+                {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    {{ form.label.label_tag }}
+                    {{ form.label }}
+                </div>
+
+                <div class="checkout-address-fields">
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ form.recipient_name.label_tag }}
+                            {{ form.recipient_name }}
+                            {% if form.recipient_name.errors %}<div class="field-error">{{ form.recipient_name.errors }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            {{ form.recipient_phone.label_tag }}
+                            {{ form.recipient_phone }}
+                            {% if form.recipient_phone.errors %}<div class="field-error">{{ form.recipient_phone.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ form.postal_code.label_tag }}
+                            {{ form.postal_code }}
+                            {% if form.postal_code.errors %}<div class="field-error">{{ form.postal_code.errors }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            {{ form.state.label_tag }}
+                            {{ form.state }}
+                            {% if form.state.errors %}<div class="field-error">{{ form.state.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        {{ form.street.label_tag }}
+                        {{ form.street }}
+                        {% if form.street.errors %}<div class="field-error">{{ form.street.errors }}</div>{% endif %}
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ form.number.label_tag }}
+                            {{ form.number }}
+                            {% if form.number.errors %}<div class="field-error">{{ form.number.errors }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            {{ form.complement.label_tag }}
+                            {{ form.complement }}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ form.neighborhood.label_tag }}
+                            {{ form.neighborhood }}
+                            {% if form.neighborhood.errors %}<div class="field-error">{{ form.neighborhood.errors }}</div>{% endif %}
+                        </div>
+                        <div class="form-group">
+                            {{ form.city.label_tag }}
+                            {{ form.city }}
+                            {% if form.city.errors %}<div class="field-error">{{ form.city.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <label class="remember-toggle" style="margin-top: 0.5rem;">
+                    {{ form.is_default }}
+                    <span class="remember-box"><span class="material-icons">check</span></span>
+                    <span class="remember-label">{{ form.is_default.label }}</span>
+                </label>
+
+                <div class="form-actions" style="margin-top: 1.25rem;">
+                    <button type="submit" class="btn-secondary" style="min-width: 160px;">Salvar endereço</button>
+                    <a href="{% url 'addresses' %}" class="btn-details" style="min-width: 120px; justify-content: center;">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% include 'partials/address_masks.html' %}
+{% endblock %}

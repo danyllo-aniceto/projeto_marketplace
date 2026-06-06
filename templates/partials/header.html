@@ -12,6 +12,54 @@
             <button id="theme-toggle" class="btn-theme" type="button" aria-label="Alternar tema">
                 <span class="material-icons">dark_mode</span>
             </button>
+
+            {% if user.is_authenticated %}
+            <div class="notif-container">
+                <button type="button" class="notif-btn btn-theme" id="notif-toggle" aria-haspopup="true" aria-expanded="false" aria-label="Notificações">
+                    <span class="material-icons">notifications</span>
+                    {% if notifications_unread_count %}
+                        <span class="notif-count-badge">{{ notifications_unread_count }}</span>
+                    {% endif %}
+                </button>
+                <div class="notif-dropdown" id="notif-dropdown" aria-hidden="true">
+                    <div class="notif-dropdown-header">
+                        <span>Notificações</span>
+                        {% if notifications_unread_count %}
+                        <form method="post" action="{% url 'notifications_mark_all_read' %}" style="margin:0;">
+                            {% csrf_token %}
+                            <button type="submit" class="notif-mark-all">Marcar lidas</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    <div class="notif-dropdown-body" id="notif-dropdown-body">
+                        {% for n in notifications_recent %}
+                        <div class="notif-item {% if not n.is_read %}is-unread{% endif %}" data-notif-id="{{ n.id }}">
+                            <a href="{% url 'notification_open' n.id %}" class="notif-item-link">
+                                <span class="notif-item-icon notif-cat-{{ n.category }}"><span class="material-icons">{{ n.icon }}</span></span>
+                                <span class="notif-item-content">
+                                    <span class="notif-item-title">{{ n.title }}</span>
+                                    <span class="notif-item-msg">{{ n.message }}</span>
+                                    <span class="notif-item-time">{{ n.created_at|timesince }} atrás</span>
+                                </span>
+                            </a>
+                            {% if not n.is_read %}
+                            <button type="button" class="notif-item-read" data-mark-read="{{ n.id }}" title="Marcar como lida" aria-label="Marcar como lida">
+                                <span class="material-icons">done</span>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <div class="notif-empty">
+                            <span class="material-icons">notifications_none</span>
+                            <span>Nenhuma notificação ainda.</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <a href="{% url 'notifications' %}" class="notif-dropdown-footer">Ver todas</a>
+                </div>
+            </div>
+            {% endif %}
+
             <div class="cart-container">
                 <a href="{% url 'cart' %}" class="cart-btn btn-secondary" id="cart-toggle" aria-haspopup="true" aria-expanded="false">
                     <span class="material-icons">shopping_cart</span>
@@ -45,8 +93,14 @@
             </div>
             <ul class="nav-group-list" id="account-links">
                 {% if user.is_authenticated %}
+                    {% if user.is_staff %}<li><a href="{% url 'moderation_panel' %}"><span class="material-icons">admin_panel_settings</span> Painel de moderação</a></li>{% endif %}
                     <li><a href="{% url 'edit_profile' %}"><span class="material-icons">manage_accounts</span> Perfil</a></li>
+                    {% if user.is_store %}<li><a href="{% url 'store_verification' %}"><span class="material-icons">verified</span> Verificação</a></li>{% endif %}
+                    <li><a href="{% url 'addresses' %}"><span class="material-icons">location_on</span> Endereços</a></li>
+                    <li><a href="{% url 'notifications' %}"><span class="material-icons">notifications</span> Notificações</a></li>
                     <li><a href="{% url 'history' %}"><span class="material-icons">history</span> Histórico</a></li>
+                    <li><a href="{% url 'payments' %}"><span class="material-icons">account_balance_wallet</span> Financeiro</a></li>
+                    <li><a href="{% url 'account_security' %}"><span class="material-icons">shield</span> Segurança</a></li>
                     <li><a href="{% url 'logout' %}"><span class="material-icons">logout</span> Sair</a></li>
                 {% else %}
                     <li><a href="{% url 'login' %}"><span class="material-icons">login</span> Login</a></li>
@@ -62,6 +116,8 @@
                 <span class="chev">▾</span>
             </div>
             <ul class="nav-group-list" id="market-links">
+                <li><a href="{% url 'stores' %}"><span class="material-icons">storefront</span> Lojas</a></li>
+                {% if user.is_store %}<li><a href="{% url 'my_store' %}"><span class="material-icons">storefront</span> Meu catálogo</a></li>{% endif %}
                 <li><a href="{% url 'my_listings' %}"><span class="material-icons">list_alt</span> Meus anúncios</a></li>
                 <li><a href="{% url 'orders' %}"><span class="material-icons">shopping_bag</span> Pedidos</a></li>
                 <li><a href="{% url 'trade_requests' %}"><span class="material-icons">compare_arrows</span> Trocas</a></li>

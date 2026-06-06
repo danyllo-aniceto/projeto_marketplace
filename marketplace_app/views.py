@@ -35,13 +35,15 @@ from rest_framework.permissions import AllowAny
 from .models import Listing
 from .serializers import ListingSerializer
 from .forms import ListingForm, CommentForm, UserProfileForm, CommonProfileForm, StoreProfileForm
-from .models import Listing, ListingImage, Category, StoreProfile, CommonProfile, Comment, Cart, CartItem, Order, OrderItem, TradeRequest, TradeProposal, TradeFulfillment, TradeMessage, PaymentTransaction, Delivery, TradeProposalImage
+from .models import Listing, ListingImage, Category, StoreProfile, CommonProfile, Comment, Cart, CartItem, Order, OrderItem, TradeRequest, TradeProposal, TradeFulfillment, TradeMessage, PaymentTransaction, Delivery, TradeProposalImage, Notification
+from .notifications import notify
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from .serializers import RegisterSerializer
 from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse, Http404
 from django.utils.dateparse import parse_date
 
 from .view_helpers import (
@@ -52,10 +54,14 @@ from .view_helpers import (
 )
 from .models import TradeDelivery
 from .forms import TradeDeliveryForm
-from .domains.auth import edit_profile, change_password, user_profile, user_login, user_logout, user_register
-from .domains.listings import home, my_listings, edit_listing, listing_detail, delete_listing, criar_anuncio
+from .domains.auth import edit_profile, change_password, user_profile, user_login, user_logout, user_register, account_security
+from .domains.listings import home, my_listings, edit_listing, listing_detail, delete_listing, criar_anuncio, report_listing
 from .domains.cart import add_to_cart, remove_from_cart, cart_view, update_cart_item_action
 from .domains.checkout import checkout_view
+from .domains.addresses import addresses_view, address_create, address_edit, address_delete, address_set_default
+from .domains.stores import stores_view, store_verification, my_store
+from .domains.pages import about, contact, help_center, privacy, terms
+from .domains.moderation_panel import moderation_panel, mod_verification, mod_report, mod_users, mod_user, mod_listings, mod_delete_listing
 
 
 # Mercado Pago preference creation and other helpers live in view_helpers.py
@@ -168,24 +174,6 @@ from .domains.trades import (
     
 
 
-@login_required
-def criar_anuncio(request):
-    if request.method == 'POST':
-        form = ListingForm(request.POST, request.FILES, user=request.user)
-        if form.is_valid():
-            anuncio = form.save(commit=False)
-            anuncio.seller = request.user
-            anuncio.save()
-
-            for image in form.cleaned_data.get('images', []):
-                ListingImage.objects.create(listing=anuncio, image=image)
-
-            return redirect('home')
-    else:
-        form = ListingForm(user=request.user)
-
-    return render(request, 'marketplace_app/criar_anuncio.html', {'form': form})
-
 class ListingListAPIView(generics.ListAPIView):
     queryset = Listing.objects.all().order_by('-created_at')
     serializer_class = ListingSerializer
@@ -248,9 +236,35 @@ def delivery_update_api(request, order_pk):
 
 @login_required
 def orders_view(request):
-    orders = Order.objects.prefetch_related('items__listing', 'items__seller').select_related('delivery', 'payment_transaction').filter(buyer=request.user).order_by('-created_at')
+    # Compras ativas (do comprador): pagas e ainda não concluídas/canceladas
+    purchases = (
+        Order.objects
+        .prefetch_related('items__listing__images', 'items__seller')
+        .select_related('delivery', 'payment_transaction')
+        .filter(buyer=request.user)
+        .exclude(status__in=[Order.COMPLETED, Order.CANCELLED])
+        .order_by('-created_at')
+    )
+
+    # Vendas ativas (do vendedor): itens ainda não recebidos, em pedidos não cancelados
+    sales = (
+        OrderItem.objects
+        .select_related('order', 'order__buyer', 'listing')
+        .prefetch_related('listing__images')
+        .filter(seller=request.user)
+        .exclude(status=OrderItem.RECEIVED)
+        .exclude(order__status=Order.CANCELLED)
+        .order_by('-order__created_at', '-id')
+    )
+
+    purchases_page = Paginator(purchases, 8).get_page(request.GET.get('purchase_page', 1))
+    sales_page = Paginator(sales, 8).get_page(request.GET.get('sale_page', 1))
+
     return render(request, 'marketplace_app/orders.html', {
-        'orders': orders,
+        'purchases_page': purchases_page,
+        'sales_page': sales_page,
+        'purchase_count': purchases.count(),
+        'sale_count': sales.count(),
     })
 
 
@@ -344,12 +358,270 @@ def history_view(request):
 
 @login_required
 def order_detail(request, pk):
-    order = get_object_or_404(Order.objects.prefetch_related('items__listing', 'items__seller').select_related('delivery', 'payment_transaction'), pk=pk, buyer=request.user)
+    order = get_object_or_404(
+        Order.objects.prefetch_related('items__listing__images', 'items__seller').select_related('delivery', 'payment_transaction'),
+        pk=pk,
+    )
+
+    items = list(order.items.all())
+    is_buyer = order.buyer_id == request.user.id
+    seller_item_ids = {item.id for item in items if item.seller_id == request.user.id}
+    is_seller = bool(seller_item_ids)
+
+    # Apenas o comprador, um vendedor de algum item, ou staff podem ver o pedido.
+    if not (is_buyer or is_seller or request.user.is_staff):
+        raise Http404('Pedido não encontrado.')
+
+    delivery = getattr(order, 'delivery', None)
+    shipping_cost = delivery.shipping_cost if delivery else 0
+    items_total = sum((i.unit_price_snapshot * i.quantity for i in items), 0)
+
     return render(request, 'marketplace_app/order_detail.html', {
         'order': order,
+        'items': items,
+        'is_buyer': is_buyer,
+        'is_seller': is_seller,
+        'seller_item_ids': seller_item_ids,
+        'items_total': items_total,
+        'shipping_cost': shipping_cost,
         'payment_transaction': getattr(order, 'payment_transaction', None),
-        'delivery': getattr(order, 'delivery', None),
+        'delivery': delivery,
     })
+
+
+def _maybe_complete_order(order):
+    """Conclui o pedido quando todos os itens foram recebidos."""
+    items = list(order.items.all())
+    if items and all(item.status == OrderItem.RECEIVED for item in items):
+        if order.status != Order.COMPLETED:
+            order.status = Order.COMPLETED
+            order.save(update_fields=['status'])
+        delivery = getattr(order, 'delivery', None)
+        if delivery and delivery.status != Delivery.DELIVERED:
+            delivery.status = Delivery.DELIVERED
+            delivery.delivered_at = timezone.now()
+            delivery.save(update_fields=['status', 'delivered_at'])
+        return True
+    return False
+
+
+@login_required
+@require_POST
+def confirm_shipment(request, pk, item_pk):
+    """Vendedor confirma o envio do seu item."""
+    order = get_object_or_404(Order, pk=pk)
+    item = get_object_or_404(OrderItem, pk=item_pk, order=order, seller=request.user)
+
+    if order.status == Order.PAID and item.status == OrderItem.PENDING_SHIPMENT:
+        item.status = OrderItem.SHIPPED
+        item.shipped_at = timezone.now()
+        item.save(update_fields=['status', 'shipped_at'])
+
+        # Marca a entrega como em trânsito assim que algo é enviado.
+        delivery = getattr(order, 'delivery', None)
+        if delivery and delivery.status in (Delivery.PENDING, Delivery.PREPARING):
+            delivery.status = Delivery.IN_TRANSIT
+            delivery.save(update_fields=['status'])
+
+        notify(
+            order.buyer,
+            'Item enviado',
+            f'"{item.title_snapshot}" foi enviado pelo vendedor. Confirme quando receber.',
+            url=reverse('order_detail', args=[order.pk]),
+            category=Notification.PURCHASE,
+            icon='local_shipping',
+            actor=request.user,
+        )
+
+        messages.success(request, f'Envio de "{item.title_snapshot}" confirmado.')
+    else:
+        messages.error(request, 'Não foi possível confirmar o envio deste item.')
+
+    return redirect('order_detail', pk=pk)
+
+
+@login_required
+@require_POST
+def confirm_receipt(request, pk, item_pk):
+    """Comprador confirma o recebimento de um item."""
+    order = get_object_or_404(Order, pk=pk, buyer=request.user)
+    item = get_object_or_404(OrderItem, pk=item_pk, order=order)
+
+    if item.status == OrderItem.SHIPPED:
+        item.status = OrderItem.RECEIVED
+        item.received_at = timezone.now()
+        item.save(update_fields=['status', 'received_at'])
+
+        order_url = reverse('order_detail', args=[order.pk])
+        notify(
+            item.seller,
+            'Recebimento confirmado',
+            f'{order.buyer.username} confirmou o recebimento de "{item.title_snapshot}".',
+            url=order_url,
+            category=Notification.SALE,
+            icon='check_circle',
+            actor=request.user,
+        )
+
+        if _maybe_complete_order(order):
+            messages.success(request, 'Recebimento confirmado. Pedido concluído!')
+        else:
+            messages.success(request, f'Recebimento de "{item.title_snapshot}" confirmado.')
+    else:
+        messages.error(request, 'Este item ainda não foi enviado.')
+
+    return redirect('order_detail', pk=pk)
+
+
+@login_required
+def payments_view(request):
+    user = request.user
+    entries = []
+
+    # ----- SAÍDAS: compras pagas -----
+    purchases = (
+        Order.objects.filter(buyer=user, status__in=[Order.PAID, Order.COMPLETED])
+        .prefetch_related('items')
+    )
+    for o in purchases:
+        titles = ', '.join(i.title_snapshot for i in o.items.all()[:3])
+        entries.append({
+            'date': o.created_at, 'kind': 'Compra', 'direction': 'out',
+            'amount': o.total_amount, 'icon': 'shopping_bag',
+            'title': f'Compra #{o.id}', 'detail': titles,
+            'url': reverse('order_detail', args=[o.id]),
+        })
+
+    # ----- ENTRADAS: vendas (itens em pedidos pagos/concluídos) -----
+    sales = (
+        OrderItem.objects.filter(seller=user, order__status__in=[Order.PAID, Order.COMPLETED])
+        .select_related('order')
+    )
+    for it in sales:
+        entries.append({
+            'date': it.order.created_at, 'kind': 'Venda', 'direction': 'in',
+            'amount': it.unit_price_snapshot * it.quantity, 'icon': 'sell',
+            'title': it.title_snapshot, 'detail': f'Pedido #{it.order_id}',
+            'url': reverse('order_detail', args=[it.order_id]),
+        })
+
+    # ----- TROCAS com dinheiro concluídas (entrada para quem recebe, saída para quem paga) -----
+    fulfillments = (
+        TradeFulfillment.objects
+        .filter(payment_status=TradeFulfillment.COMPLETED, payment_amount__gt=0)
+        .select_related('trade_request__listing', 'trade_request__requester',
+                        'trade_request__counterparty', 'agreed_proposal')
+    )
+    for tf in fulfillments:
+        payer = tf.agreed_proposal.get_cash_payer_user() if tf.agreed_proposal else None
+        if payer is None:
+            continue
+        tr = tf.trade_request
+        receiver = tr.counterparty if payer.id == tr.requester_id else tr.requester
+        when = tf.confirmed_at or tf.payment_confirmed_at or tf.created_at
+        base = {
+            'date': when, 'kind': 'Troca', 'amount': tf.payment_amount,
+            'icon': 'swap_horiz', 'title': f'Troca: {tr.listing.title}',
+            'url': reverse('trade_request_detail', args=[tr.id]),
+        }
+        if payer.id == user.id:
+            entries.append({**base, 'direction': 'out', 'detail': f'Valor pago a {receiver.username}'})
+        elif receiver.id == user.id:
+            entries.append({**base, 'direction': 'in', 'detail': f'Recebido de {payer.username}'})
+
+    entries.sort(key=lambda e: e['date'], reverse=True)
+
+    spent = sum((e['amount'] for e in entries if e['direction'] == 'out'), 0)
+    earned = sum((e['amount'] for e in entries if e['direction'] == 'in'), 0)
+
+    tab = request.GET.get('tab', 'all')
+    if tab == 'in':
+        filtered = [e for e in entries if e['direction'] == 'in']
+    elif tab == 'out':
+        filtered = [e for e in entries if e['direction'] == 'out']
+    else:
+        filtered = entries
+
+    page_obj = Paginator(filtered, 15).get_page(request.GET.get('page', 1))
+
+    return render(request, 'marketplace_app/payments.html', {
+        'page_obj': page_obj,
+        'spent': spent,
+        'earned': earned,
+        'balance': earned - spent,
+        'tab': tab,
+        'in_count': sum(1 for e in entries if e['direction'] == 'in'),
+        'out_count': sum(1 for e in entries if e['direction'] == 'out'),
+        'total_count': len(entries),
+    })
+
+
+@login_required
+def notifications_view(request):
+    qs = Notification.objects.filter(recipient=request.user)
+    tab = request.GET.get('tab', 'all')
+    if tab == 'unread':
+        qs = qs.filter(is_read=False)
+
+    page_obj = Paginator(qs, 20).get_page(request.GET.get('page', 1))
+    unread_count = Notification.objects.filter(recipient=request.user, is_read=False).count()
+
+    return render(request, 'marketplace_app/notifications.html', {
+        'page_obj': page_obj,
+        'tab': tab,
+        'unread_count': unread_count,
+        'total_count': Notification.objects.filter(recipient=request.user).count(),
+    })
+
+
+@login_required
+def notification_open(request, pk):
+    notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
+    if not notification.is_read:
+        notification.is_read = True
+        notification.save(update_fields=['is_read'])
+    return redirect(notification.url or 'notifications')
+
+
+@login_required
+@require_POST
+def notifications_mark_all_read(request):
+    Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True, 'unread': 0})
+    messages.success(request, 'Todas as notificações foram marcadas como lidas.')
+    return redirect('notifications')
+
+
+@login_required
+@require_POST
+def notification_mark_read(request, pk):
+    n = get_object_or_404(Notification, pk=pk, recipient=request.user)
+    if not n.is_read:
+        n.is_read = True
+        n.save(update_fields=['is_read'])
+    unread = Notification.objects.filter(recipient=request.user, is_read=False).count()
+    return JsonResponse({'ok': True, 'unread': unread})
+
+
+@login_required
+def notifications_feed(request):
+    from django.utils.timesince import timesince
+    qs = Notification.objects.filter(recipient=request.user)
+    unread = qs.filter(is_read=False).count()
+    items = []
+    for n in qs[:8]:
+        items.append({
+            'id': n.id,
+            'title': n.title,
+            'message': n.message,
+            'open_url': reverse('notification_open', args=[n.id]),
+            'icon': n.icon,
+            'category': n.category,
+            'is_read': n.is_read,
+            'time_ago': timesince(n.created_at),
+        })
+    return JsonResponse({'unread': unread, 'items': items})
 
 
 @login_required

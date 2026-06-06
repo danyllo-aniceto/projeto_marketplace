@@ -1,0 +1,47 @@
+<script>
+// Máscaras de endereço reutilizáveis — aplicadas por atributo name,
+// funcionam para qualquer formulário de endereço presente na página.
+(function () {
+    const stripDigits = (v) => v.replace(/\D/g, '');
+
+    function formatCep(value) {
+        const d = stripDigits(value).slice(0, 8);
+        return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+    }
+
+    function formatPhone(value) {
+        const d = stripDigits(value).slice(0, 11);
+        if (d.length <= 2) return d ? `(${d}` : '';
+        if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+        if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+        return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    }
+
+    function bind(selector, formatter) {
+        document.querySelectorAll(selector).forEach((input) => {
+            if (input.dataset.maskBound) return;
+            input.dataset.maskBound = '1';
+            input.addEventListener('input', () => {
+                const pos = input.selectionStart;
+                input.value = formatter(input.value);
+            });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        bind('input[name="postal_code"], input[name="cep"], input[name="store_cep"]', formatCep);
+        bind('input[name="recipient_phone"], input[name="phone"], input[name="store_phone"]', formatPhone);
+
+        // UF: 2 letras maiúsculas
+        document.querySelectorAll('input[name="state"]').forEach((input) => {
+            if (input.dataset.maskBound) return;
+            input.dataset.maskBound = '1';
+            input.setAttribute('maxlength', '2');
+            input.style.textTransform = 'uppercase';
+            input.addEventListener('input', () => {
+                input.value = input.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 2);
+            });
+        });
+    });
+})();
+</script>

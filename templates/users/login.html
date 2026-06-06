@@ -8,14 +8,6 @@
         <h2><span class="material-icons">login</span> Login</h2>
         <p class="auth-intro">Entre com sua conta para acompanhar anúncios, trocas e pedidos.</p>
 
-        {% if messages %}
-            <div class="auth-notice-stack">
-                {% for message in messages %}
-                    <div class="alert-message {{ message.tags }}">{{ message }}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
-
         {% if form.non_field_errors %}
             <div class="form-error-summary">
                 {% for error in form.non_field_errors %}
@@ -39,8 +31,8 @@
                 <label for="{{ form.password.id_for_label }}"><span class="material-icons">lock</span> Senha</label>
                 <div class="password-container">
                     {{ form.password }}
-                    <button type="button" class="password-toggle" onclick="togglePassword()">
-                        <span class="material-icons" id="password-icon">visibility</span>
+                    <button type="button" class="password-toggle" aria-label="Mostrar senha" data-password-toggle>
+                        <span class="material-icons">visibility</span>
                     </button>
                 </div>
                 {% if form.password.errors %}
@@ -48,10 +40,11 @@
                 {% endif %}
             </div>
 
-            <div class="checkbox-container">
-                <input type="checkbox" id="remember" name="remember">
-                <label for="remember">Lembrar de mim</label>
-            </div>
+            <label class="remember-toggle">
+                <input type="checkbox" name="remember" value="1">
+                <span class="remember-box"><span class="material-icons">check</span></span>
+                <span class="remember-label">Manter conectado neste dispositivo</span>
+            </label>
 
             <div class="form-group">
                 <button type="submit" class="auth-submit"><span class="material-icons">login</span> Entrar</button>
@@ -68,18 +61,19 @@
 </div>
 
 <script>
-function togglePassword() {
-    const passwordInput = document.getElementById('password');
-    const passwordIcon = document.getElementById('password-icon');
+document.querySelectorAll('[data-password-toggle]').forEach((toggleBtn) => {
+    toggleBtn.addEventListener('click', () => {
+        const container = toggleBtn.closest('.password-container');
+        const input = container ? container.querySelector('input') : null;
+        const icon = toggleBtn.querySelector('.material-icons');
+        if (!input) return;
 
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        passwordIcon.textContent = 'visibility_off';
-    } else {
-        passwordInput.type = 'password';
-        passwordIcon.textContent = 'visibility';
-    }
-}
+        const showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        if (icon) icon.textContent = showing ? 'visibility' : 'visibility_off';
+        toggleBtn.setAttribute('aria-label', showing ? 'Mostrar senha' : 'Ocultar senha');
+    });
+});
 </script>
 
 {% endblock %}

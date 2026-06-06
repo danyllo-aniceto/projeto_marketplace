@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}Meus Endereços — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">location_on</span> Meus Endereços</h2>
+        <div class="page-header-actions">
+            <a href="{% url 'address_create' %}" class="btn-secondary">Adicionar endereço</a>
+        </div>
+    </div>
+
+    {% if addresses %}
+        <div class="address-grid">
+            {% for address in addresses %}
+            <div class="address-card {% if address.is_default %}is-default{% endif %}">
+                <div class="address-card-head">
+                    <span class="address-card-label">
+                        <span class="material-icons">{% if address.is_default %}home{% else %}place{% endif %}</span>
+                        {{ address.label|default:"Endereço" }}
+                    </span>
+                    {% if address.is_default %}
+                        <span class="badge badge-approved">Padrão</span>
+                    {% endif %}
+                </div>
+                <div class="address-card-body">
+                    <p>{{ address.recipient_name }}{% if address.recipient_phone %} · {{ address.recipient_phone }}{% endif %}</p>
+                    <p>{{ address.street }}, {{ address.number }}{% if address.complement %} — {{ address.complement }}{% endif %}</p>
+                    <p>{{ address.neighborhood }} — {{ address.city }}/{{ address.state }}</p>
+                    <p>CEP {{ address.postal_code }}</p>
+                </div>
+                <div class="address-card-actions">
+                    <a href="{% url 'address_edit' address.id %}" class="btn-details">Editar</a>
+                    {% if not address.is_default %}
+                    <form method="post" action="{% url 'address_set_default' address.id %}" style="margin:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-primary">Tornar padrão</button>
+                    </form>
+                    {% endif %}
+                    <form method="post" action="{% url 'address_delete' address.id %}" class="address-delete-form" data-label="{{ address.label|default:address.street|escapejs }}" style="margin:0;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-danger">Excluir</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <span class="material-icons empty-icon">location_off</span>
+            <h3>Nenhum endereço cadastrado</h3>
+            <p>Salve endereços para agilizar seus checkouts de compra e troca.</p>
+            <a href="{% url 'address_create' %}" class="btn-secondary" style="margin-top: 0.5rem;">Adicionar endereço</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.address-delete-form').forEach(form => {
+    form.addEventListener('submit', e => {
+        const label = form.dataset.label || 'este endereço';
+        if (!confirm(`Excluir "${label}"? Essa ação não pode ser desfeita.`)) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}

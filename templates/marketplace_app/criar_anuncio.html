@@ -115,6 +115,18 @@
                     </div>
                 </div>
 
+                <!-- ESTOQUE -->
+                <div class="form-group">
+                    {{ form.stock.label_tag }}
+                    <div class="stock-field">
+                        <button type="button" class="stock-step" data-stock-step="-1" aria-label="Diminuir"><span class="material-icons">remove</span></button>
+                        {{ form.stock }}
+                        <button type="button" class="stock-step" data-stock-step="1" aria-label="Aumentar"><span class="material-icons">add</span></button>
+                        <button type="button" class="stock-step" data-stock-step="5" aria-label="Adicionar 5" style="width:auto;padding:0 0.6rem;">+5</button>
+                    </div>
+                    {% if form.stock.errors %}<div class="field-error">{{ form.stock.errors }}</div>{% endif %}
+                </div>
+
                 <!-- ⑤ PREÇO (visível para venda e venda+troca) -->
                 <div class="form-group" id="price-group">
                     {{ form.price.label_tag }}
@@ -369,6 +381,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (listingTypeSelect && !listingTypeSelect.value) listingTypeSelect.value = 'sale';
         }
     }
+
+    // ---- Stepper de estoque ----
+    document.querySelectorAll('[data-stock-step]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = document.getElementById('id_stock');
+            if (!input) return;
+            const cur = parseInt(input.value, 10) || 0;
+            input.value = Math.max(0, cur + parseInt(btn.dataset.stockStep, 10));
+        });
+    });
 });
 </script>
 {% endblock %}

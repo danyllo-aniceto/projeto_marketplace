@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block title %}Painel de Moderação — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">admin_panel_settings</span> Painel de Moderação</h2>
+        <div class="page-header-actions">
+            <a href="/admin/" class="btn-primary" target="_blank">Django Admin</a>
+        </div>
+    </div>
+
+    <div class="mod-subnav">
+        <a href="{% url 'moderation_panel' %}" class="mod-subnav-link active">Verificações & Denúncias</a>
+        <a href="{% url 'mod_users' %}" class="mod-subnav-link">Usuários</a>
+        <a href="{% url 'mod_listings' %}" class="mod-subnav-link">Anúncios</a>
+    </div>
+
+    <!-- MÉTRICAS -->
+    <div class="store-insights" style="margin-bottom: 1.5rem;">
+        <div class="store-insight-card highlight">
+            <span class="material-icons">verified</span>
+            <strong>{{ verifications_count }}</strong>
+            <span>Verificações pendentes</span>
+        </div>
+        <div class="store-insight-card">
+            <span class="material-icons">flag</span>
+            <strong>{{ reports_count }}</strong>
+            <span>Denúncias abertas</span>
+        </div>
+        <div class="store-insight-card">
+            <span class="material-icons">group</span>
+            <strong>{{ users_total }}</strong>
+            <span>Usuários</span>
+        </div>
+        <div class="store-insight-card">
+            <span class="material-icons">inventory_2</span>
+            <strong>{{ listings_total }}</strong>
+            <span>Anúncios</span>
+        </div>
+        <div class="store-insight-card">
+            <span class="material-icons">block</span>
+            <strong>{{ banned_total }}</strong>
+            <span>Contas banidas</span>
+        </div>
+    </div>
+
+    <div class="tab-nav">
+        <button class="tab-btn active" data-target="verif-panel">
+            <span class="material-icons">verified</span> Verificações ({{ verifications_count }})
+        </button>
+        <button class="tab-btn" data-target="reports-panel">
+            <span class="material-icons">flag</span> Denúncias ({{ reports_count }})
+        </button>
+    </div>
+
+    <!-- VERIFICAÇÕES -->
+    <div id="verif-panel" class="cart-panel">
+        {% if pending_verifications %}
+            {% for v in pending_verifications %}
+            <div class="mod-card">
+                <div class="mod-card-main">
+                    <p class="mod-card-title"><span class="material-icons">storefront</span> {{ v.store.username }}</p>
+                    <p class="mod-card-sub">Solicitado em {{ v.created_at|date:'d/m/Y H:i' }}</p>
+                    {% if v.message %}<p class="mod-card-msg">"{{ v.message }}"</p>{% endif %}
+                    <a href="{{ v.document.url }}" target="_blank" class="mod-doc-link">
+                        <span class="material-icons">description</span> Ver documento enviado
+                    </a>
+                </div>
+                <div class="mod-card-actions">
+                    <form method="post" action="{% url 'mod_verification' v.id %}" style="margin:0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="approve">
+                        <button type="submit" class="btn-secondary">Aprovar</button>
+                    </form>
+                    <form method="post" action="{% url 'mod_verification' v.id %}" style="margin:0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="reject">
+                        <button type="submit" class="btn-danger">Recusar</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state"><span class="material-icons empty-icon">verified</span>
+                <h3>Nenhuma verificação pendente</h3><p>Tudo em dia por aqui.</p></div>
+        {% endif %}
+    </div>
+
+    <!-- DENÚNCIAS -->
+    <div id="reports-panel" class="cart-panel" style="display:none;">
+        {% if reports %}
+            {% for r in reports %}
+            <div class="mod-card">
+                <div class="mod-card-main">
+                    <p class="mod-card-title">
+                        <span class="material-icons">flag</span>
+                        {% if r.listing %}<a href="{% url 'listing_detail' r.listing.id %}" class="seller-link" target="_blank">{{ r.listing.title }}</a>{% else %}(anúncio removido){% endif %}
+                        {% if r.status == 'open' %}<span class="badge badge-pending">Aberta</span>
+                        {% elif r.status == 'reviewed' %}<span class="badge badge-approved">Resolvida</span>
+                        {% else %}<span class="badge badge-info">Descartada</span>{% endif %}
+                    </p>
+                    <p class="mod-card-sub">
+                        {% if r.listing %}Vendedor: {{ r.listing.seller.username }} · {% endif %}Denunciado por: {{ r.reporter.username|default:'—' }} · {{ r.created_at|date:'d/m/Y H:i' }}
+                    </p>
+                    <p class="mod-card-msg"><strong>{{ r.get_reason_display }}</strong>{% if r.detail %} — {{ r.detail }}{% endif %}</p>
+                </div>
+                {% if r.status == 'open' and r.listing %}
+                <div class="mod-card-actions">
+                    <form method="post" action="{% url 'mod_report' r.id %}" class="mod-delete-form" style="margin:0; display:flex; gap:0.4rem; flex-wrap:wrap;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_listing">
+                        <input type="text" name="reason" placeholder="Motivo (opcional)" class="form-control" style="width:auto; min-width:160px;">
+                        <button type="submit" class="btn-danger">Excluir anúncio</button>
+                    </form>
+                    <form method="post" action="{% url 'mod_report' r.id %}" style="margin:0;" onsubmit="return confirm('Banir o vendedor e remover todos os anúncios dele?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="ban_seller">
+                        <button type="submit" class="btn-danger">Banir vendedor</button>
+                    </form>
+                    <form method="post" action="{% url 'mod_report' r.id %}" style="margin:0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="dismiss">
+                        <button type="submit" class="btn-details">Descartar</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state"><span class="material-icons empty-icon">flag</span>
+                <h3>Nenhuma denúncia</h3><p>Nenhum anúncio foi denunciado.</p></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const tabs = document.querySelectorAll('.tab-btn');
+    const panels = document.querySelectorAll('.cart-panel');
+    tabs.forEach(tab => tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        panels.forEach(p => p.style.display = 'none');
+        const t = document.getElementById(tab.dataset.target);
+        if (t) t.style.display = 'block';
+    }));
+});
+</script>
+{% endblock %}

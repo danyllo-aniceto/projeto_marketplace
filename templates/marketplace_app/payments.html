@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Financeiro — Tech Hub{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h2 class="section-title"><span class="material-icons">account_balance_wallet</span> Financeiro</h2>
+    </div>
+
+    <!-- RESUMO -->
+    <div class="finance-summary">
+        <div class="finance-summary-card out">
+            <span class="material-icons">arrow_upward</span>
+            <div>
+                <span class="finance-summary-label">Gastei</span>
+                <strong>R$ {{ spent|floatformat:2 }}</strong>
+            </div>
+        </div>
+        <div class="finance-summary-card in">
+            <span class="material-icons">arrow_downward</span>
+            <div>
+                <span class="finance-summary-label">Ganhei</span>
+                <strong>R$ {{ earned|floatformat:2 }}</strong>
+            </div>
+        </div>
+        <div class="finance-summary-card balance">
+            <span class="material-icons">savings</span>
+            <div>
+                <span class="finance-summary-label">Saldo</span>
+                <strong>R$ {{ balance|floatformat:2 }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- ABAS -->
+    <div class="tab-nav">
+        <a href="?tab=all" class="tab-btn {% if tab != 'in' and tab != 'out' %}active{% endif %}" style="text-decoration:none;">
+            <span class="material-icons">receipt_long</span> Tudo ({{ total_count }})
+        </a>
+        <a href="?tab=in" class="tab-btn {% if tab == 'in' %}active{% endif %}" style="text-decoration:none;">
+            <span class="material-icons">arrow_downward</span> Entradas ({{ in_count }})
+        </a>
+        <a href="?tab=out" class="tab-btn {% if tab == 'out' %}active{% endif %}" style="text-decoration:none;">
+            <span class="material-icons">arrow_upward</span> Saídas ({{ out_count }})
+        </a>
+    </div>
+
+    {% if page_obj.object_list %}
+        <div class="finance-list">
+            {% for e in page_obj %}
+            <a href="{{ e.url }}" class="finance-row">
+                <span class="finance-row-icon {{ e.direction }}"><span class="material-icons">{{ e.icon }}</span></span>
+                <div class="finance-row-body">
+                    <span class="finance-row-title">{{ e.title }}</span>
+                    <span class="finance-row-detail">{{ e.kind }} · {{ e.detail }}</span>
+                    <span class="finance-row-date">{{ e.date|date:'d/m/Y H:i' }}</span>
+                </div>
+                <span class="finance-row-amount {{ e.direction }}">
+                    {% if e.direction == 'out' %}−{% else %}+{% endif %}R$ {{ e.amount|floatformat:2 }}
+                </span>
+            </a>
+            {% endfor %}
+        </div>
+
+        {% if page_obj.has_other_pages %}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+                <a href="?tab={{ tab }}&page={{ page_obj.previous_page_number }}" class="btn-details">Anterior</a>
+            {% endif %}
+            <span class="pagination-info">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+                <a href="?tab={{ tab }}&page={{ page_obj.next_page_number }}" class="btn-details">Próxima</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <span class="material-icons empty-icon">account_balance_wallet</span>
+            <h3>Sem movimentações</h3>
+            <p>Suas compras, vendas e trocas com valor aparecerão aqui.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

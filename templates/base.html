@@ -4,8 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    {% if user.is_authenticated %}<meta name="notifications-feed-url" content="{% url 'notifications_feed' %}">{% endif %}
     <title>{% block title %}Tech Hub - Marketplace{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260531-1">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=20260606-1">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -23,21 +25,27 @@
         const savedTheme = localStorage.getItem('theme') || 'dark';
         const body = document.body;
 
-        function dismissMessage(messageElement) {
-            if (!messageElement) return;
-            messageElement.classList.add('message-hiding');
-            window.setTimeout(() => messageElement.remove(), 220);
+        function dismissMessage(toastElement) {
+            if (!toastElement) return;
+            toastElement.classList.add('toast-hiding');
+            window.setTimeout(() => toastElement.remove(), 260);
         }
 
         function initToastMessages() {
-            document.querySelectorAll('.message[data-auto-hide="true"]').forEach((messageElement) => {
-                const closeButton = messageElement.querySelector('.message-close');
+            document.querySelectorAll('.toast[data-auto-hide="true"]').forEach((toastElement) => {
+                const closeButton = toastElement.querySelector('.toast-close');
 
                 if (closeButton) {
-                    closeButton.addEventListener('click', () => dismissMessage(messageElement));
+                    closeButton.addEventListener('click', () => dismissMessage(toastElement));
                 }
 
-                window.setTimeout(() => dismissMessage(messageElement), 3200);
+                // Erros e avisos ficam mais tempo (9s); sucesso/info somem em 6s.
+                const isPersistent = toastElement.classList.contains('toast-error')
+                    || toastElement.classList.contains('toast-danger')
+                    || toastElement.classList.contains('toast-warning');
+                const delay = isPersistent ? 9000 : 6000;
+
+                window.setTimeout(() => dismissMessage(toastElement), delay);
             });
         }
 
@@ -77,6 +85,132 @@
                     cartToggle.setAttribute('aria-expanded', 'false');
                     cartDropdown.setAttribute('aria-hidden', 'true');
                 }
+            });
+        }
+
+        // Notifications dropdown toggle
+        const notifToggle = document.getElementById('notif-toggle');
+        const notifDropdown = document.getElementById('notif-dropdown');
+
+        if (notifToggle && notifDropdown) {
+            notifToggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                const open = notifDropdown.classList.toggle('open');
+                notifToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                notifDropdown.setAttribute('aria-hidden', open ? 'false' : 'true');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!notifToggle.contains(e.target) && !notifDropdown.contains(e.target)) {
+                    notifDropdown.classList.remove('open');
+                    notifToggle.setAttribute('aria-expanded', 'false');
+                    notifDropdown.setAttribute('aria-hidden', 'true');
+                }
+            });
+        }
+
+        // ===== Notificações: marcar como lida (AJAX) + tempo real (polling) =====
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const feedUrl = document.querySelector('meta[name="notifications-feed-url"]')?.content || '';
+
+        function setNotifBadge(unread) {
+            const btn = document.getElementById('notif-toggle');
+            if (!btn) return;
+            let badge = btn.querySelector('.notif-count-badge');
+            if (unread > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'notif-count-badge';
+                    btn.appendChild(badge);
+                }
+                badge.textContent = unread;
+            } else if (badge) {
+                badge.remove();
+            }
+        }
+
+        function markNotifReadRequest(id) {
+            return fetch('/notificacoes/' + id + '/lida/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+            }).then(r => r.ok ? r.json() : null);
+        }
+
+        // Delegação: clique em qualquer botão "marcar como lida"
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-mark-read]');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const id = btn.getAttribute('data-mark-read');
+            markNotifReadRequest(id).then(data => {
+                if (!data || !data.ok) return;
+                setNotifBadge(data.unread);
+                const container = btn.closest('[data-notif-id]');
+                if (container) {
+                    container.classList.remove('is-unread');
+                    const dot = container.querySelector('.notif-dot');
+                    if (dot) dot.remove();
+                }
+                btn.remove();
+            });
+        });
+
+        // Polling do feed para atualizar sino e dropdown em "tempo real"
+        function escapeHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s == null ? '' : s;
+            return d.innerHTML;
+        }
+
+        function renderNotifDropdown(items) {
+            const body = document.getElementById('notif-dropdown-body');
+            if (!body) return;
+            if (!items.length) {
+                body.innerHTML = '<div class="notif-empty"><span class="material-icons">notifications_none</span><span>Nenhuma notificação ainda.</span></div>';
+                return;
+            }
+            body.innerHTML = items.map(n => {
+                const unreadCls = n.is_read ? '' : ' is-unread';
+                const readBtn = n.is_read ? '' :
+                    '<button type="button" class="notif-item-read" data-mark-read="' + n.id + '" title="Marcar como lida" aria-label="Marcar como lida"><span class="material-icons">done</span></button>';
+                return '<div class="notif-item' + unreadCls + '" data-notif-id="' + n.id + '">' +
+                    '<a href="' + n.open_url + '" class="notif-item-link">' +
+                        '<span class="notif-item-icon notif-cat-' + n.category + '"><span class="material-icons">' + escapeHtml(n.icon) + '</span></span>' +
+                        '<span class="notif-item-content">' +
+                            '<span class="notif-item-title">' + escapeHtml(n.title) + '</span>' +
+                            '<span class="notif-item-msg">' + escapeHtml(n.message) + '</span>' +
+                            '<span class="notif-item-time">' + escapeHtml(n.time_ago) + ' atrás</span>' +
+                        '</span>' +
+                    '</a>' + readBtn +
+                '</div>';
+            }).join('');
+        }
+
+        let lastUnread = null;
+        function pollNotifications() {
+            if (!feedUrl) return;
+            fetch(feedUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (!data) return;
+                    setNotifBadge(data.unread);
+                    // Só re-renderiza o dropdown se algo mudou (evita perder foco/cliques)
+                    if (lastUnread !== null && data.unread !== lastUnread) {
+                        renderNotifDropdown(data.items);
+                    } else if (lastUnread === null) {
+                        renderNotifDropdown(data.items);
+                    }
+                    lastUnread = data.unread;
+                })
+                .catch(() => {});
+        }
+
+        if (feedUrl) {
+            pollNotifications();
+            setInterval(pollNotifications, 20000);
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') pollNotifications();
             });
         }
 
