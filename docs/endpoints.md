@@ -538,7 +538,45 @@ Retorna em sucesso:
 
 - `200` com novo `access`
 
-## 4. Resumo Rápido De Respostas
+## 4. Endpoints adicionais (módulos implementados)
+
+> A especificação completa e canônica está em [openapi.yaml](openapi.yaml) (64 paths, 14 tags),
+> navegável em [swagger.html](swagger.html). Resumo das rotas novas:
+
+### Notificações
+- `GET /notificacoes/` — página de notificações
+- `GET /notificacoes/feed/` — feed JSON para o sino (polling)
+- `POST /notificacoes/<id>/abrir/` — abre e marca como lida (redireciona à `url`)
+- `POST /notificacoes/<id>/marcar-lida/` — marca uma como lida
+- `POST /notificacoes/marcar-todas/` — marca todas como lidas
+
+### Pedidos e entrega
+- `POST /pedidos/<id>/enviar/` — vendedor confirma envio
+- `POST /pedidos/<id>/receber/` — comprador confirma recebimento
+
+### Endereços
+- `GET/POST /enderecos/` — livro de endereços (listar/criar)
+- `POST /enderecos/<id>/padrao/` — definir como padrão
+- `POST /enderecos/<id>/excluir/` — remover
+
+### Lojas
+- `GET /lojas/` — hub de lojas (verificadas primeiro)
+- `GET /minha-loja/` — catálogo/insights da própria loja (PJ)
+- `GET/POST /loja/verificacao/` — solicitar selo de verificação
+
+### Financeiro e segurança
+- `GET /financeiro/` — Gastei × Ganhei × Saldo
+- `GET /conta/seguranca/` — strikes e dicas de segurança
+- `POST /anuncio/<id>/denunciar/` — denunciar anúncio
+
+### Painel de moderação (somente staff)
+- `GET /painel-moderacao/` — visão geral (verificações, denúncias, usuários, anúncios)
+- gerenciar verificações de loja, denúncias, usuários (banir) e anúncios (remover com motivo + strike)
+
+### Páginas institucionais
+- `GET /sobre/`, `/contato/`, `/ajuda/`, `/privacidade/`, `/termos/`
+
+## 5. Resumo Rápido De Respostas
 
 - sucesso web: geralmente `200` ou `302`
 - sucesso API: `200` ou `201`

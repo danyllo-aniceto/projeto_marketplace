@@ -271,6 +271,30 @@ erDiagram
     Listing ||--o{ Message : referencia
 ```
 
+## Entidades adicionais (módulos implementados)
+
+Além das entidades originais, o sistema evoluiu e hoje inclui:
+
+### Campos novos em entidades existentes
+- **User**: `strikes` (advertências de moderação; 3 = banimento automático via `is_active=False`).
+- **Listing**: `stock` (quantidade em estoque; 0 = esgotado; repor reativa o anúncio).
+- **OrderItem**: `status` (`pending_shipment` → `shipped` → `received`), `shipped_at`, `received_at` — confirmação de envio (vendedor) e recebimento (comprador).
+- **Comment**: `parent` (respostas a comentários).
+- **TradeProposal**: `cash_payer` (`requester`/`owner`) — define qual participante paga o valor adicional.
+- **StoreProfile**: `banner`, `description` (vitrine/catálogo da loja).
+
+### Notification
+Avisos do sistema. Campos: `recipient`, `actor`, `category` (sale/purchase/trade/comment/system), `title`, `message`, `url`, `icon`, `is_read`, `created_at`. Alimenta o sino do header (feed JSON em tempo real) e a página `/notificacoes/`.
+
+### Address
+Livro de endereços do usuário. Campos: `label`, dados de destinatário/endereço (CEP, rua, número, complemento, bairro, cidade, estado), `is_default`. Reutilizado no checkout de venda e de troca.
+
+### StoreVerificationRequest
+Solicitação de selo de loja verificada. Campos: `store`, `document` (upload), `message`, `status` (pending/approved/rejected), `review_note`, `reviewed_at`. Aprovada no painel de moderação → marca `StoreProfile.verified` + notifica.
+
+### ListingReport
+Denúncia de anúncio por usuário. Campos: `listing`, `reporter`, `reason` (prohibited/off_topic/scam/other), `detail`, `status` (open/reviewed/dismissed). Fila no painel de moderação do admin.
+
 ## Observação importante
 
-Hoje o projeto ainda mistura um pouco a lógica de compra e troca no mesmo anúncio. A direção mais limpa é tratar a compra pelo carrinho e a troca por uma entidade própria de negociação, em vez de tentar resolver tudo dentro do mesmo fluxo.
+A compra é tratada pelo carrinho/pedido e a troca por entidades próprias de negociação — fluxos separados e independentes.

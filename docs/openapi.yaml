@@ -42,6 +42,18 @@ tags:
     description: Edição de perfil, senha e perfil público
   - name: Trocas
     description: Negociação de troca (propostas, contrapropostas, entrega)
+  - name: Notificações
+    description: Avisos do sistema (sino, feed em tempo real, marcar lidas)
+  - name: Endereços
+    description: Livro de endereços do usuário
+  - name: Lojas
+    description: Hub de lojas, catálogo e verificação
+  - name: Financeiro
+    description: Painel de gastos e ganhos
+  - name: Moderação
+    description: Painel do admin (verificações, denúncias, usuários, anúncios)
+  - name: Páginas
+    description: Páginas institucionais (sobre, contato, ajuda, termos)
   - name: API JSON
     description: Endpoints que retornam/aceitam JSON
   - name: Webhooks & Integrações
@@ -1102,3 +1114,305 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/DeliveryUpdateResult' }
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
+
+  # ============================================================
+  # CONFIRMAÇÃO DE ENTREGA (venda)
+  # ============================================================
+  /pedidos/{pk}/itens/{item_pk}/enviar/:
+    post:
+      tags: [Checkout & Pedidos]
+      summary: Vendedor confirma o envio de um item
+      parameters:
+        - { $ref: '#/components/parameters/PkPath' }
+        - { name: item_pk, in: path, required: true, schema: { type: integer } }
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /pedidos/{pk}/itens/{item_pk}/receber/:
+    post:
+      tags: [Checkout & Pedidos]
+      summary: Comprador confirma o recebimento (conclui o pedido quando todos recebidos)
+      parameters:
+        - { $ref: '#/components/parameters/PkPath' }
+        - { name: item_pk, in: path, required: true, schema: { type: integer } }
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ============================================================
+  # NOTIFICAÇÕES
+  # ============================================================
+  /notificacoes/:
+    get:
+      tags: [Notificações]
+      summary: Lista de notificações (abas todas/não lidas)
+      parameters:
+        - { name: tab, in: query, schema: { type: string, enum: [all, unread] } }
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+  /notificacoes/feed/:
+    get:
+      tags: [Notificações, API JSON]
+      summary: Feed JSON (contador de não lidas + recentes) para o sino
+      responses:
+        '200':
+          description: Contador e itens recentes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unread: { type: integer }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        title: { type: string }
+                        message: { type: string }
+                        open_url: { type: string }
+                        icon: { type: string }
+                        category: { type: string }
+                        is_read: { type: boolean }
+                        time_ago: { type: string }
+  /notificacoes/{pk}/abrir/:
+    get:
+      tags: [Notificações]
+      summary: Marca como lida e redireciona ao destino
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /notificacoes/{pk}/lida/:
+    post:
+      tags: [Notificações, API JSON]
+      summary: Marca uma notificação como lida (AJAX)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      responses:
+        '200':
+          description: OK com novo contador.
+          content:
+            application/json:
+              schema: { type: object, properties: { ok: { type: boolean }, unread: { type: integer } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /notificacoes/marcar-lidas/:
+    post:
+      tags: [Notificações]
+      summary: Marca todas como lidas
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '200': { description: "OK (quando chamado via AJAX retorna JSON)." }
+
+  # ============================================================
+  # ENDEREÇOS
+  # ============================================================
+  /enderecos/:
+    get:
+      tags: [Endereços]
+      summary: Livro de endereços do usuário
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+  /enderecos/novo/:
+    get:
+      tags: [Endereços]
+      summary: Formulário de novo endereço
+      responses: { '200': { $ref: '#/components/responses/HtmlPage' } }
+    post:
+      tags: [Endereços]
+      summary: Cria endereço (1º vira padrão)
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '200': { $ref: '#/components/responses/HtmlFormReRender' }
+  /enderecos/{pk}/editar/:
+    post:
+      tags: [Endereços]
+      summary: Edita um endereço
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /enderecos/{pk}/excluir/:
+    post:
+      tags: [Endereços]
+      summary: Exclui um endereço (promove outro a padrão se necessário)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /enderecos/{pk}/padrao/:
+    post:
+      tags: [Endereços]
+      summary: Define o endereço como padrão
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ============================================================
+  # LOJAS
+  # ============================================================
+  /lojas/:
+    get:
+      tags: [Lojas]
+      summary: Hub de lojas (verificadas primeiro, com busca)
+      parameters: [ { name: q, in: query, schema: { type: string } } ]
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+  /minha-loja/:
+    get:
+      tags: [Lojas]
+      summary: Catálogo da loja (insights + banner + produtos)
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+    post:
+      tags: [Lojas]
+      summary: Atualiza banner e descrição da loja
+      responses: { '302': { $ref: '#/components/responses/Redirect' } }
+  /loja/verificacao/:
+    get:
+      tags: [Lojas]
+      summary: Status e formulário de solicitação de verificação
+      responses: { '200': { $ref: '#/components/responses/HtmlPage' } }
+    post:
+      tags: [Lojas]
+      summary: Solicita verificação (upload de documento)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                document: { type: string, format: binary }
+                message: { type: string }
+      responses: { '302': { $ref: '#/components/responses/Redirect' } }
+
+  # ============================================================
+  # FINANCEIRO
+  # ============================================================
+  /financeiro/:
+    get:
+      tags: [Financeiro]
+      summary: Painel financeiro (gastei × ganhei × saldo)
+      parameters: [ { name: tab, in: query, schema: { type: string, enum: [all, in, out] } } ]
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+
+  # ============================================================
+  # SEGURANÇA DO USUÁRIO
+  # ============================================================
+  /conta/seguranca/:
+    get:
+      tags: [Perfil]
+      summary: Segurança da conta (strikes, status, atividade)
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { $ref: '#/components/responses/LoginRedirect' }
+
+  # ============================================================
+  # DENÚNCIA
+  # ============================================================
+  /anuncio/{pk}/denunciar/:
+    post:
+      tags: [Anúncios, Moderação]
+      summary: Denuncia um anúncio
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, enum: [prohibited, off_topic, scam, other] }
+                detail: { type: string }
+      responses:
+        '302': { $ref: '#/components/responses/Redirect' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ============================================================
+  # PAINEL DE MODERAÇÃO (staff)
+  # ============================================================
+  /painel-moderacao/:
+    get:
+      tags: [Moderação]
+      summary: Painel — verificações pendentes e denúncias
+      description: "Acesso restrito a usuários `is_staff`. Não-staff recebe redirect."
+      responses:
+        '200': { $ref: '#/components/responses/HtmlPage' }
+        '302': { description: "Redirect (não autenticado ou sem permissão)." }
+  /painel-moderacao/verificacao/{pk}/:
+    post:
+      tags: [Moderação]
+      summary: Aprovar/recusar verificação de loja
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema: { type: object, properties: { action: { type: string, enum: [approve, reject] } } }
+      responses: { '302': { $ref: '#/components/responses/Redirect' } }
+  /painel-moderacao/denuncia/{pk}/:
+    post:
+      tags: [Moderação]
+      summary: Resolver denúncia (excluir anúncio, banir vendedor ou descartar)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                action: { type: string, enum: [delete_listing, ban_seller, dismiss] }
+                reason: { type: string }
+      responses: { '302': { $ref: '#/components/responses/Redirect' } }
+  /painel-moderacao/usuarios/:
+    get:
+      tags: [Moderação]
+      summary: Lista de usuários (busca, strikes, status)
+      parameters: [ { name: q, in: query, schema: { type: string } } ]
+      responses: { '200': { $ref: '#/components/responses/HtmlPage' } }
+  /painel-moderacao/usuarios/{pk}/acao/:
+    post:
+      tags: [Moderação]
+      summary: Banir / reativar / zerar strikes de um usuário
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema: { type: object, properties: { action: { type: string, enum: [ban, reactivate, reset_strikes] } } }
+      responses: { '302': { $ref: '#/components/responses/Redirect' } }
+  /painel-moderacao/anuncios/:
+    get:
+      tags: [Moderação]
+      summary: Lista de anúncios (busca)
+      parameters: [ { name: q, in: query, schema: { type: string } } ]
+      responses: { '200': { $ref: '#/components/responses/HtmlPage' } }
+  /painel-moderacao/anuncios/{pk}/excluir/:
+    post:
+      tags: [Moderação]
+      summary: Exclui anúncio com motivo (notifica vendedor + aplica strike)
+      parameters: [ { $ref: '#/components/parameters/PkPath' } ]
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema: { type: object, properties: { reason: { type: string } } }
+      responses: { '302': { $ref: '#/components/responses/Redirect' } }
+
+  # ============================================================
+  # PÁGINAS INSTITUCIONAIS
+  # ============================================================
+  /sobre/:
+    get: { tags: [Páginas], summary: "Sobre o projeto e autores", security: [], responses: { '200': { $ref: '#/components/responses/HtmlPage' } } }
+  /contato/:
+    get: { tags: [Páginas], summary: "Página de contato", security: [], responses: { '200': { $ref: '#/components/responses/HtmlPage' } } }
+    post: { tags: [Páginas], summary: "Envia mensagem de contato (simulado)", security: [], responses: { '302': { $ref: '#/components/responses/Redirect' } } }
+  /ajuda/:
+    get: { tags: [Páginas], summary: "Central de ajuda (FAQ)", security: [], responses: { '200': { $ref: '#/components/responses/HtmlPage' } } }
+  /privacidade/:
+    get: { tags: [Páginas], summary: "Política de privacidade", security: [], responses: { '200': { $ref: '#/components/responses/HtmlPage' } } }
+  /termos/:
+    get: { tags: [Páginas], summary: "Termos de uso", security: [], responses: { '200': { $ref: '#/components/responses/HtmlPage' } } }

@@ -316,28 +316,29 @@ footer(s, 4)
 # ============================================================
 s = add_slide(); set_bg(s); accent_bar(s)
 section_header(s, "MODELAGEM DO BANCO", "Principais entidades", meta="PostgreSQL", accent=RGBColor(0x8A,0x4F,0xD4))
-card(s, Inches(0.6), Inches(2.2), Inches(3.9), Inches(4.4), "Identidade",
-     [("User", "AbstractUser + is_store"),
+card(s, Inches(0.6), Inches(2.2), Inches(3.9), Inches(4.4), "Identidade & lojas",
+     [("User", "AbstractUser, is_store, strikes"),
       ("CommonProfile", "CPF, nascimento, endereço"),
-      ("StoreProfile", "CNPJ, razão social, selo"),
+      ("StoreProfile", "CNPJ, selo, banner, descrição"),
+      ("StoreVerification", "pedido de selo + documento"),
+      ("Address", "livro de endereços"),
       ("Category", "categorias de hardware")],
-     accent=ACCENT_CYAN, body_size=13)
+     accent=ACCENT_CYAN, body_size=12.5)
 card(s, Inches(4.72), Inches(2.2), Inches(3.9), Inches(4.4), "Catálogo & compra",
-     [("Listing", "anúncio: venda/troca"),
+     [("Listing", "anúncio: venda/troca + estoque"),
       ("ListingImage", "múltiplas imagens"),
-      ("Comment", "comentários aninhados"),
+      ("Comment", "comentários com respostas"),
       ("Cart / CartItem", "carrinho"),
-      ("Order / OrderItem", "pedido + snapshots"),
-      ("Payment / Delivery", "pagamento e entrega")],
-     accent=PRIMARY_BLUE, body_size=13)
-card(s, Inches(8.84), Inches(2.2), Inches(3.9), Inches(4.4), "Negociação de troca",
-     [("TradeRequest", "negociação"),
-      ("TradeProposal", "proposta + dinheiro"),
-      ("TradeProposalImage", "fotos da proposta"),
-      ("TradeMessage", "mensagens"),
-      ("TradeFulfillment", "execução/acordo"),
-      ("TradeDelivery", "entrega dos 2 lados")],
-     accent=SUCCESS, body_size=13)
+      ("Order / OrderItem", "pedido + envio/recebimento"),
+      ("Payment / Delivery", "pagamento e frete")],
+     accent=PRIMARY_BLUE, body_size=12.5)
+card(s, Inches(8.84), Inches(2.2), Inches(3.9), Inches(4.4), "Troca, avisos & moderação",
+     [("TradeRequest / Proposal", "negociação + quem paga"),
+      ("TradeFulfillment", "acordo/execução"),
+      ("TradeDelivery", "entrega dos 2 lados"),
+      ("Notification", "avisos em tempo real"),
+      ("ListingReport", "denúncias de anúncio")],
+     accent=SUCCESS, body_size=12.5)
 footer(s, 5)
 
 # ============================================================
@@ -399,7 +400,66 @@ card(s, Inches(6.78), Inches(2.95), Inches(5.95), Inches(3.7), "Estados da negoc
 footer(s, 7)
 
 # ============================================================
-# SLIDE 8 — QUALIDADE, VALIDAÇÕES E SEGURANÇA
+# SLIDE 8 — PLATAFORMA COMPLETA (novas funcionalidades)
+# ============================================================
+s = add_slide(); set_bg(s); accent_bar(s)
+section_header(s, "2 · DEMONSTRAÇÃO", "Uma plataforma completa", meta="Pós-MVP", accent=PRIMARY_BLUE)
+card(s, Inches(0.6), Inches(2.2), Inches(2.92), Inches(4.4), "🔔  Notificações",
+     ["Avisos de venda, compra, troca e comentário",
+      "Sino no header com badge",
+      "Tempo real via polling",
+      "Marcar lida + lidas/não lidas"],
+     accent=ACCENT_CYAN, title_size=15, body_size=12)
+card(s, Inches(3.66), Inches(2.2), Inches(2.92), Inches(4.4), "📍  Endereços & frete",
+     ["Livro de endereços (CRUD)",
+      "Preenche o checkout num clique",
+      "Frete simulado por serviço",
+      "Subtotal + frete + total ao vivo"],
+     accent=PRIMARY_BLUE, title_size=15, body_size=12)
+card(s, Inches(6.72), Inches(2.2), Inches(2.92), Inches(4.4), "📦  Estoque",
+     ["Quantidade por anúncio",
+      "Baixa ao vender ou trocar",
+      "Esgotado automático",
+      "Repor reativa o anúncio"],
+     accent=WARNING, title_size=15, body_size=12)
+card(s, Inches(9.78), Inches(2.2), Inches(2.95), Inches(4.4), "💳  Financeiro",
+     ["Painel Gastei × Ganhei × Saldo",
+      "Compras, vendas e trocas",
+      "Cada item liga ao pedido",
+      "Confirmação de envio e recebimento"],
+     accent=SUCCESS, title_size=15, body_size=12)
+footer(s, 8)
+
+# ============================================================
+# SLIDE 9 — LOJAS E MODERAÇÃO
+# ============================================================
+s = add_slide(); set_bg(s); accent_bar(s)
+section_header(s, "DIFERENCIAIS & GOVERNANÇA", "Lojas e moderação", meta="Confiança", accent=RGBColor(0x8A,0x4F,0xD4))
+card(s, Inches(0.6), Inches(2.2), Inches(3.9), Inches(4.4), "🏪  Lojas",
+     ["Hub de lojas (verificadas primeiro)",
+      "Vitrine com banner e descrição",
+      "Catálogo com itens esgotados",
+      "Selo de loja verificada",
+      "Solicitar verificação por documento"],
+     accent=ACCENT_CYAN, title_size=17, body_size=12.5)
+card(s, Inches(4.72), Inches(2.2), Inches(3.9), Inches(4.4), "🛡️  Moderação de conteúdo",
+     ["Filtro de termos proibidos no cadastro",
+      "Bloqueio de ofensa / conteúdo ilegal",
+      "Validação de tipo e tamanho de imagem",
+      "Denúncia de anúncio pelo usuário",
+      "Strikes: 3 → banimento automático"],
+     accent=RGBColor(0xE0,0x4F,0x5F), title_size=17, body_size=12.5)
+card(s, Inches(8.84), Inches(2.2), Inches(3.9), Inches(4.4), "⚙️  Painel do admin",
+     ["Aprovar/recusar verificações",
+      "Excluir anúncio com motivo + strike",
+      "Banir / reativar usuários",
+      "Fila de denúncias",
+      "Rate limit no login (anti força-bruta)"],
+     accent=SUCCESS, title_size=17, body_size=12.5)
+footer(s, 9)
+
+# ============================================================
+# SLIDE 10 — QUALIDADE, VALIDAÇÕES E SEGURANÇA
 # ============================================================
 s = add_slide(); set_bg(s); accent_bar(s)
 section_header(s, "QUALIDADE & SEGURANÇA", "Validações, testes e proteção", meta="RNF + Etapa 6", accent=RGBColor(0xE0,0x4F,0x5F))
@@ -420,14 +480,14 @@ card(s, Inches(4.72), Inches(2.2), Inches(3.9), Inches(4.4), "Testes automatizad
       "Auth e regras dos models"],
      accent=SUCCESS, body_size=12.5)
 card(s, Inches(8.84), Inches(2.2), Inches(3.9), Inches(4.4), "Segurança",
-     ["Senhas validadas pelo Django",
+     ["Senhas com hash + validação de força",
       "Segredos fora do código (.env)",
-      "CSRF em todos os formulários",
-      "Cookies seguros + SSL em produção",
-      "HSTS e ALLOWED_HOSTS obrigatórios",
-      "JWT para a API REST"],
+      "CSRF em todos os formulários; ORM (anti-SQLi)",
+      "Cookies seguros + SSL/HSTS em produção",
+      "Moderação de conteúdo + strikes + rate limit",
+      "Permissões por dono (evita IDOR)"],
      accent=WARNING, body_size=12.5)
-footer(s, 8)
+footer(s, 10)
 
 # ============================================================
 # SLIDE 9 — DECISÕES TÉCNICAS (POR QUE ASSIM)
@@ -442,7 +502,7 @@ bullets(s, Inches(0.7), Inches(2.25), Inches(12.0), Inches(4.5), [
     ("Troca como entidades próprias", "TradeRequest/Proposal/Fulfillment modelam a negociação real, em vez de forçar tudo no chat."),
     ("Pagamento via gateway + webhook", "o Mercado Pago confirma o pagamento de forma assíncrona, refletindo no status do pedido."),
 ], size=14.5, gap=11)
-footer(s, 9)
+footer(s, 11)
 
 # ============================================================
 # SLIDE 10 — DIFICULDADES E APRENDIZADOS
@@ -463,7 +523,7 @@ card(s, Inches(6.78), Inches(2.2), Inches(5.95), Inches(4.4), "Aprendizados",
       "Validar no backend, não só no frontend",
       "Git com commits frequentes salva o projeto"],
      accent=SUCCESS, title_size=18, body_size=13.5)
-footer(s, 10)
+footer(s, 12)
 
 # ============================================================
 # SLIDE 11 — PRÓXIMOS PASSOS
@@ -488,7 +548,7 @@ card(s, Inches(8.84), Inches(2.2), Inches(3.9), Inches(4.4), "Polimento",
       "Painel admin de moderação",
       "Acessibilidade"],
      accent=SUCCESS, body_size=13)
-footer(s, 11)
+footer(s, 13)
 
 # ============================================================
 # SLIDE 12 — ENCERRAMENTO / PERGUNTAS
@@ -505,7 +565,7 @@ p3 = para(tf); p3.space_before = Pt(18)
 add_run(p3, "Tech Hub  ·  Marketplace de Tecnologia em Django", 15, TEXT_GRAY)
 p4 = para(tf); p4.space_before = Pt(6)
 add_run(p4, "Demonstração ao vivo disponível.", 14, TEXT_MUTED)
-footer(s, 12)
+footer(s, 14)
 
 # ============================================================
 out = Path(__file__).resolve().parent / "Tech_Hub_Apresentacao.pptx"

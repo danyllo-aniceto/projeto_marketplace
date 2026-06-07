@@ -42,6 +42,8 @@ INSTALLED_APPS = [
 # =========================
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # WhiteNoise serve os arquivos estáticos em produção (logo após o SecurityMiddleware)
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -139,6 +141,16 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Armazenamento (Django 5+). WhiteNoise comprime e versiona os estáticos em produção.
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+
 
 # =========================
 # EMAIL CONFIGURATION
@@ -194,3 +206,8 @@ X_FRAME_OPTIONS = env('X_FRAME_OPTIONS', default='DENY')
 # Enforce ALLOWED_HOSTS in production - keep empty for local development
 if not DEBUG and not ALLOWED_HOSTS:
     raise ImproperlyConfigured('ALLOWED_HOSTS must be set in production')
+
+# CSRF_TRUSTED_ORIGINS: domínios HTTPS confiáveis para POST/forms em produção.
+# Defina no .env como lista separada por vírgula, ex.:
+#   CSRF_TRUSTED_ORIGINS=https://meusite.com,https://www.meusite.com
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])

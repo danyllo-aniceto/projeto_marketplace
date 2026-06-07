@@ -76,15 +76,41 @@ Validações:
 ## Regras de loja verificada
 
 - o campo `verified` indica selo de confiança
-- o selo deve ser controlado pelo admin
-- a loja não deveria poder se autoaprovada
+- o selo é controlado pelo admin no painel de moderação
+- a loja **não** se autoaprova: envia `StoreVerificationRequest` com documento e aguarda análise
+- lojas verificadas aparecem primeiro no hub de lojas
 
-## O que ainda está faltando
+## Regras de estoque
 
-- fluxo real de pagamento
-- fluxo real de troca com status
-- chat persistente para negociação
-- validação visual de máscara para CPF/CNPJ
-- múltiplas imagens no formulário de criação e edição
+- todo anúncio de venda tem `stock` (quantidade)
+- `stock = 0` marca o anúncio como **esgotado** (não pode ser comprado)
+- "repor estoque" reativa o anúncio; vender o último item esgota automaticamente
+- a compra reduz o estoque; concluir o pedido confirma a baixa
+
+## Regras de pedido e entrega
+
+- após a compra, o vendedor confirma o **envio** (`shipped`)
+- depois o comprador confirma o **recebimento** (`received`)
+- quando todos os itens são recebidos, o pedido é **concluído** e entra no financeiro
+- o frete é simulado e exibido no checkout; endereço vem do livro de endereços
+
+## Regras de moderação e segurança
+
+- **conteúdo proibido** (ofensa, ódio, itens ilegais) é bloqueado automaticamente no cadastro de anúncios, comentários e perfil — comparação normalizada (sem acento, por palavra)
+- conteúdo proibido removido ou anúncio derrubado pela moderação gera **strike**
+- ao atingir **3 strikes**, a conta é suspensa automaticamente (`is_active=False`) e os anúncios são removidos
+- usuários podem **denunciar** anúncios (`ListingReport`); a fila vai para o painel do admin
+- **rate limiting** no login: após 5 tentativas erradas, bloqueio temporário (anti força-bruta)
+- o usuário vê suas advertências e dicas em "Segurança da conta"
+
+## O que depende de serviço externo / IA
+
+- **moderação de imagens** (conteúdo impróprio em fotos): exige serviço de visão computacional (ex.: AWS Rekognition, Google Vision, OpenAI) — não é viável só com código local
+- **detecção de anúncio fora do tema** (não-eletrônico): por palavras-chave gera falsos positivos (ex.: "carregador para carro"); o ideal seria classificação por IA/embeddings
+- pagamento real (hoje é simulado com QR fictício)
+
+## O que ainda poderia evoluir
+
+- chat persistente para negociação de troca
 - filtros avançados de busca
-- bloqueio completo de anúncios fora das regras em todas as entradas possíveis
+- integração de pagamento real (gateway)

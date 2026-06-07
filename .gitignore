@@ -7,16 +7,25 @@ __pycache__/
 # Virtual env
 venv/
 .venv/
+
+# Segredos / ambiente — NUNCA versionar (apenas .env.example pode subir)
 .env
-.env/
+.env.*
+!.env.example
 
 # Django
 db.sqlite3
 *.log
 staticfiles/
 
+# Uploads de usuário (mídia) — não versionar
+/media/
+
 # VSCode
 .vscode/
+
+# VSCode Local History (chegou a versionar cópias antigas da .env com segredos!)
+.history/
 
 # Sistema
 .DS_Store

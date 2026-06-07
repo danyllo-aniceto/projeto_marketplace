@@ -13,39 +13,90 @@ import unicodedata
 from django.core.exceptions import ValidationError
 
 
-# Termos proibidos (edite conforme a política). Normalizados (sem acento, minúsculos).
-# Mantido curto e representativo; cobre ofensas/ódio e indicadores de ilegalidade.
+# Termos proibidos (edite conforme a política). São comparados já normalizados
+# (sem acento, minúsculos, ver _normalize). Mantemos termos específicos e, quando
+# possível, em expressão (duas+ palavras) para reduzir falso positivo — o objetivo
+# é bloquear o cadastro do conteúdo, não banir por uma única palavra ambígua.
 PROHIBITED_TERMS = {
-    # ódio / ofensas graves
-    'viado', 'viadinho', 'bicha', 'sapatao', 'traveco',
-    'macaco', 'preto fedido', 'crioulo',
-    'retardado', 'mongoloide',
-    # sexual explícito / exploração
-    'pornografia', 'pedofilia', 'estupro', 'zoofilia',
-    # ilegalidade explícita
-    'cocaina', 'maconha', 'crack', 'lsd', 'metanfetamina',
-    'arma de fogo', 'pistola', 'revolver', 'fuzil', 'municao',
-    'documento falso', 'cnh falsa', 'diploma falso',
+    # ----- discurso de ódio / ofensas graves: homofobia/transfobia -----
+    'viado', 'viadinho', 'viadao', 'bicha', 'bichinha', 'sapatao',
+    'traveco', 'travecao', 'baitola', 'boiola',
+    # ----- racismo -----
+    'macaco preto', 'preto fedido', 'crioulo', 'nego fedido',
+    'volta pra senzala', 'quadrilha de preto',
+    # ----- capacitismo / ofensa a deficiência -----
+    'retardado', 'retardada', 'mongoloide', 'mongol', 'aleijado debiloide',
+    'debil mental',
+    # ----- xenofobia / intolerância religiosa -----
+    'nordestino burro', 'macumbeiro do capeta',
+    # ----- sexual explícito / exploração (ilegal) -----
+    'pornografia', 'pornografia infantil', 'pedofilia', 'pedofilo',
+    'estupro', 'estuprar', 'zoofilia', 'sexo com menor', 'menor de idade nu',
+    'nudes de menor', 'conteudo adulto infantil',
+    # ----- drogas ilícitas -----
+    'cocaina', 'maconha', 'skunk', 'haxixe', 'crack', 'lsd',
+    'metanfetamina', 'ecstasy', 'mdma', 'heroina', 'merla', 'oxi',
+    'lanca perfume', 'cogumelo alucinogeno', 'folha de coca',
+    'comprar droga', 'vendo droga', 'tabua de maconha',
+    # ----- armas e munição (venda proibida na plataforma) -----
+    'arma de fogo', 'pistola', 'revolver', 'fuzil', 'espingarda',
+    'submetralhadora', 'municao', 'cartucho calibre', 'silenciador de arma',
+    'granada', 'explosivo caseiro', 'arma artesanal', 'arma 3d',
+    # ----- documentos / itens falsos ou fraudulentos -----
+    'documento falso', 'documentos falsos', 'cnh falsa', 'rg falso',
+    'diploma falso', 'certificado falso', 'nota fiscal falsa',
+    'dinheiro falso', 'cedula falsa',
+    # ----- produtos roubados / desbloqueio ilícito (golpe comum no e-commerce) -----
+    'produto roubado', 'celular roubado', 'aparelho roubado',
+    'imei bloqueado', 'desbloqueio de imei', 'desbloquear imei roubado',
+    'cartao clonado', 'cartao de credito clonado', 'chip clonado',
+    'conta bancaria hackeada', 'cvv roubado', 'gerador de cartao',
+    # ----- pirataria / acesso ilícito -----
+    'conta netflix hackeada', 'iptv pirata', 'gerador de licenca pirata',
 }
 
 
-def _normalize(text):
+# Substituições de "leetspeak" para dificultar burlas simples (v1@d0 -> viado).
+# Conservador: só mapeamos símbolos/dígitos que viram letras. Como a busca exige
+# bordas de palavra e termos específicos, a chance de falso positivo é baixa.
+_LEET_MAP = {
+    '@': 'a', '4': 'a',
+    '$': 's', '5': 's',
+    '0': 'o',
+    '1': 'i', '!': 'i',
+    '3': 'e',
+    '7': 't',
+    '9': 'g',
+}
+_LEET_TABLE = str.maketrans(_LEET_MAP)
+
+
+def _normalize(text, *, leet=False):
     text = (text or '').lower()
     # remove acentos
     text = unicodedata.normalize('NFKD', text)
     text = ''.join(c for c in text if not unicodedata.combining(c))
+    if leet:
+        text = text.translate(_LEET_TABLE)
+    # colapsa 3+ repetições da mesma letra (viaaaado -> viado); preserva duplas reais
+    text = re.sub(r'(.)\1{2,}', r'\1', text)
     # colapsa espaços
     return re.sub(r'\s+', ' ', text)
 
 
 def find_prohibited(text):
-    """Retorna a lista de termos proibidos encontrados no texto (pode ser vazia)."""
-    normalized = _normalize(text)
+    """Retorna a lista de termos proibidos encontrados no texto (pode ser vazia).
+
+    Verifica o texto normalizado e também uma variante com 'leetspeak' resolvido
+    (v1@d0 -> viado), pegando burlas simples sem aumentar o falso positivo: um
+    termo só é flagrado se casar exatamente com a palavra/expressão proibida.
+    """
+    variants = {_normalize(text), _normalize(text, leet=True)}
     found = []
     for term in PROHIBITED_TERMS:
         # casa o termo como palavra/expressão (com bordas) para reduzir falso positivo
         pattern = r'(?<!\w)' + re.escape(term) + r'(?!\w)'
-        if re.search(pattern, normalized):
+        if any(re.search(pattern, v) for v in variants):
             found.append(term)
     return found
 
@@ -71,7 +122,8 @@ def record_strike(user):
     (desativa + remove anúncios). Retorna (strikes_atuais, banido)."""
     from .models import Listing
 
-    if not user or not user.is_authenticated or user.is_superuser:
+    # Moderadores (staff) e superusuários não levam strike/ban automático.
+    if not user or not user.is_authenticated or user.is_staff or user.is_superuser:
         return (0, False)
 
     user.strikes = (user.strikes or 0) + 1

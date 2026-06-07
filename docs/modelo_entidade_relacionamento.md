@@ -62,6 +62,16 @@ erDiagram
     TRADE_REQUEST ||--o{ TRADE_DELIVERY : "entregas (1 por lado)"
     USER          ||--o{ TRADE_DELIVERY : "informa"
 
+    %% ===================== NOTIFICAÇÕES / CONTA ===========
+    USER ||--o{ NOTIFICATION : "recebe (recipient)"
+    USER ||--o{ NOTIFICATION : "gera (actor)"
+    USER ||--o{ ADDRESS      : "possui"
+
+    %% ===================== MODERAÇÃO ======================
+    USER    ||--o{ STORE_VERIFICATION_REQUEST : "solicita (store)"
+    LISTING ||--o{ LISTING_REPORT : "denunciado em"
+    USER    ||--o{ LISTING_REPORT : "denuncia (reporter)"
+
     %% ===================== ENTIDADES ======================
     USER {
         int      id PK
@@ -73,7 +83,8 @@ erDiagram
         bool     is_store
         image    profile_picture
         bool     is_staff
-        bool     is_active
+        bool     is_active "false = banido"
+        int      strikes "advertências (3 = ban)"
         datetime date_joined
     }
 
@@ -101,6 +112,8 @@ erDiagram
         string commercial_cep
         string commercial_address
         bool   verified "Loja Verificada"
+        image  banner
+        text   description
     }
 
     CATEGORY {
@@ -120,6 +133,7 @@ erDiagram
         string   listing_type "sale | trade | both"
         string   condition "new | used"
         string   status "active | paused | sold"
+        int      stock "0 = esgotado"
         bool     is_featured
         bool     is_store_featured
         datetime created_at
@@ -174,6 +188,9 @@ erDiagram
         string  title_snapshot
         decimal unit_price_snapshot
         int     quantity
+        string  status "pending_shipment | shipped | received"
+        datetime shipped_at
+        datetime received_at
     }
 
     PAYMENT_TRANSACTION {
@@ -240,6 +257,7 @@ erDiagram
         int      proposer_id FK "-> USER"
         text     item_description
         decimal  cash_amount "diferença em R$"
+        string   cash_payer "requester | owner"
         text     note
         datetime created_at
     }
@@ -294,6 +312,58 @@ erDiagram
         datetime created_at
         datetime updated_at
     }
+
+    %% ===================== NOTIFICAÇÕES / CONTA ===========
+    NOTIFICATION {
+        int      id PK
+        int      recipient_id FK "-> USER"
+        int      actor_id FK "-> USER (null)"
+        string   category "sale | purchase | trade | comment | system"
+        string   title
+        text     message
+        url      url
+        string   icon
+        bool     is_read
+        datetime created_at
+    }
+
+    ADDRESS {
+        int      id PK
+        int      user_id FK "-> USER"
+        string   label
+        string   recipient_name
+        string   postal_code
+        string   street
+        string   number
+        string   complement
+        string   neighborhood
+        string   city
+        string   state
+        bool     is_default
+        datetime created_at
+    }
+
+    %% ===================== MODERAÇÃO ======================
+    STORE_VERIFICATION_REQUEST {
+        int      id PK
+        int      store_id FK "-> USER (loja)"
+        file     document
+        text     message
+        string   status "pending | approved | rejected"
+        text     review_note
+        datetime reviewed_at
+        datetime created_at
+    }
+
+    LISTING_REPORT {
+        int      id PK
+        int      listing_id FK "-> LISTING"
+        int      reporter_id FK "-> USER"
+        string   reason "prohibited | off_topic | scam | other"
+        text     detail
+        string   status "open | reviewed | dismissed"
+        datetime created_at
+    }
 ```
 
 ---
@@ -330,6 +400,11 @@ erDiagram
 | TradeProposal | TradeFulfillment | 1 : N | `agreed_proposal` (SET_NULL) |
 | TradeRequest | TradeMessage | 1 : N | |
 | TradeRequest | TradeDelivery | 1 : N | uma por participante |
+| User | Notification | 1 : N | `recipient`; `actor` opcional (2 relações) |
+| User | Address | 1 : N | livro de endereços (`is_default`) |
+| User (loja) | StoreVerificationRequest | 1 : N | solicitação de selo |
+| Listing | ListingReport | 1 : N | denúncias |
+| User | ListingReport | 1 : N | `reporter` |
 
 ---
 
@@ -346,6 +421,9 @@ Table user {
   last_name varchar
   is_store boolean
   profile_picture varchar
+  is_staff boolean
+  is_active boolean
+  strikes int
 }
 
 Table common_profile {
@@ -372,6 +450,8 @@ Table store_profile {
   commercial_cep varchar
   commercial_address varchar
   verified boolean
+  banner varchar
+  description text
 }
 
 Table category {
@@ -391,6 +471,7 @@ Table listing {
   listing_type varchar
   condition varchar
   status varchar
+  stock int
   is_featured boolean
   is_store_featured boolean
   created_at datetime
@@ -448,6 +529,9 @@ Table order_item {
   title_snapshot varchar
   unit_price_snapshot decimal
   quantity int
+  status varchar
+  shipped_at datetime
+  received_at datetime
 }
 
 Table payment_transaction {
@@ -514,6 +598,7 @@ Table trade_proposal {
   proposer_id int [ref: > user.id]
   item_description text
   cash_amount decimal
+  cash_payer varchar
   note text
   created_at datetime
 }
@@ -567,5 +652,55 @@ Table trade_delivery {
   status varchar
   created_at datetime
   updated_at datetime
+}
+
+Table notification {
+  id int [pk]
+  recipient_id int [ref: > user.id]
+  actor_id int [ref: > user.id]
+  category varchar
+  title varchar
+  message text
+  url varchar
+  icon varchar
+  is_read boolean
+  created_at datetime
+}
+
+Table address {
+  id int [pk]
+  user_id int [ref: > user.id]
+  label varchar
+  recipient_name varchar
+  postal_code varchar
+  street varchar
+  number varchar
+  complement varchar
+  neighborhood varchar
+  city varchar
+  state varchar
+  is_default boolean
+  created_at datetime
+}
+
+Table store_verification_request {
+  id int [pk]
+  store_id int [ref: > user.id]
+  document varchar
+  message text
+  status varchar
+  review_note text
+  reviewed_at datetime
+  created_at datetime
+}
+
+Table listing_report {
+  id int [pk]
+  listing_id int [ref: > listing.id]
+  reporter_id int [ref: > user.id]
+  reason varchar
+  detail text
+  status varchar
+  created_at datetime
 }
 ```
