@@ -10,3 +10,7 @@ python manage.py collectstatic --no-input
 
 # Aplica as migrações no banco
 python manage.py migrate
+
+# Cria o superusuário a partir das variáveis DJANGO_SUPERUSER_* (idempotente).
+# Em hosts sem shell (Render Free) é assim que se cria o admin.
+python manage.py createadmin

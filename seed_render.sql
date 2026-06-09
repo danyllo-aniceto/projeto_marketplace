@@ -42,9 +42,8 @@ INSERT INTO marketplace_app_user
     (id, password, last_login, is_superuser, username, first_name, last_name,
      email, is_staff, is_active, date_joined, is_store, profile_picture, strikes)
 VALUES
--- Admin / staff -------------------------------------------------------------
-(1000, 'pbkdf2_sha256$600000$seedsalt12345$RXVvc3yhRnlN3kit1cXh6eHW+mNbVMl0Kq7NZRfO46Y=',
-       NULL, true,  'admin',     'Admin',    'Marketplace', 'admin@marketplace.com', true,  true,  '2026-03-01 09:00:00-03', false, NULL, 0),
+-- Obs.: o usuario 'admin' NAO entra aqui — ele e criado pelo comando createadmin
+-- (build.sh) a partir das variaveis DJANGO_SUPERUSER_*. Evita colisao de username.
 
 -- Pessoas Físicas (PF) ------------------------------------------------------
 (1001, 'pbkdf2_sha256$600000$seedsalt12345$RXVvc3yhRnlN3kit1cXh6eHW+mNbVMl0Kq7NZRfO46Y=',
@@ -323,7 +322,7 @@ VALUES
 (7, 'system',   'Bem-vindo ao Marketplace',   'Complete seu perfil para começar a vender.',   '/perfil/',       'notifications', true,  '2026-03-05 10:16:00-03', NULL, 1001),
 (8, 'sale',     'Você fez uma venda!',        'Seu Smartwatch Galaxy Watch6 foi vendido.',    '/pedidos/3003/', 'sell',          false, '2026-05-04 16:36:00-03', 1003, 1025),
 (9, 'comment',  'Resposta ao seu comentário', 'A loja respondeu sua dúvida sobre o PS5.',     '/anuncios/2005/','comment',       false, '2026-04-26 11:16:00-03', 1021, 1003),
-(10,'system',   'Conta verificada',           'Sua loja foi verificada com sucesso!',         '/perfil/loja/',  'verified',      true,  '2026-03-01 12:00:00-03', 1000, 1020);
+(10,'system',   'Conta verificada',           'Sua loja foi verificada com sucesso!',         '/perfil/loja/',  'verified',      true,  '2026-03-01 12:00:00-03', NULL, 1020);
 
 -- =============================================================================
 -- 13) DENÚNCIAS (ListingReport)

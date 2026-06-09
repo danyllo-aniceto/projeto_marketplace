@@ -1,6 +1,6 @@
 asgiref==3.11.1
 Django==5.2.14
-# Django==6.0.5  # alternativa apenas se o ambiente for compatível
+# Django==6.0.5  # alternativa apenas se o ambiente for compativel
 djangorestframework==3.17.1
 djangorestframework_simplejwt==5.5.1
 packaging==26.2
@@ -13,10 +13,10 @@ tzdata==2026.2
 wheel==0.47.0
 django-environ
 
-# Produção
+# Producao
 whitenoise==6.8.2
 gunicorn==23.0.0
 
-# Armazenamento de mídia (imagens) na nuvem — Cloudinary
+# Armazenamento de midia (imagens) na nuvem - Cloudinary
 cloudinary
 django-cloudinary-storage

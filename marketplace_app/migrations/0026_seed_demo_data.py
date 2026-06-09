@@ -14,7 +14,10 @@ from django.conf import settings
 from django.db import migrations
 
 
-SENTINEL_USER_ID = 1000
+# Usuario sentinela do seed (primeiro PF). Se ja existir, assume que o seed
+# ja rodou e nao faz nada. Nao usamos o 'admin' aqui porque ele e criado
+# separadamente pelo comando createadmin.
+SENTINEL_USER_ID = 1001
 
 
 def _load_seed_sql():
