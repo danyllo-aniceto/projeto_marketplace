@@ -15,8 +15,9 @@
 -- Observações:
 --  * Use APÓS `python manage.py migrate` (as tabelas e as categorias padrão
 --    já precisam existir).
---  * Os IDs explícitos começam em faixas altas (1000+, 2000+, ...) para não
---    colidir com dados existentes. No fim, as sequences são reajustadas.
+--  * Os IDs explícitos usam faixas altas (1001+ usuários, 2001+ anúncios,
+--    3001+ pedidos, 6001+ trocas, 90001+ tabelas-filhas) para NÃO colidir
+--    com dados já existentes no banco. No fim, as sequences são reajustadas.
 --  * Tudo roda dentro de uma transação: ou entra tudo, ou nada.
 -- =============================================================================
 
@@ -83,14 +84,14 @@ VALUES
 INSERT INTO marketplace_app_commonprofile
     (id, cpf, birth_date, phone, cep, address, user_id)
 VALUES
-(1, '11122233344', '1995-04-12', '11988880001', '01310100', 'Av. Paulista, 1000 - São Paulo/SP', 1001),
-(2, '22233344455', '1990-08-23', '21988880002', '20040002', 'Rua da Assembleia, 50 - Rio de Janeiro/RJ', 1002),
-(3, '33344455566', '1998-12-01', '31988880003', '30140071', 'Av. Afonso Pena, 700 - Belo Horizonte/MG', 1003),
-(4, '44455566677', '1987-06-30', '41988880004', '80010000', 'Rua XV de Novembro, 200 - Curitiba/PR', 1004),
-(5, '55566677788', '2000-02-14', '51988880005', '90010150', 'Av. Borges de Medeiros, 300 - Porto Alegre/RS', 1005),
-(6, '66677788899', '1993-09-05', '71988880006', '40020000', 'Av. Sete de Setembro, 400 - Salvador/BA', 1006),
-(7, '77788899900', '1996-11-19', '81988880007', '50030230', 'Av. Conde da Boa Vista, 800 - Recife/PE', 1007),
-(8, '88899900011', '1985-01-27', '60110110', '60110110', 'Av. Beira Mar, 900 - Fortaleza/CE', 1008);
+(90001, '11122233344', '1995-04-12', '11988880001', '01310100', 'Av. Paulista, 1000 - São Paulo/SP', 1001),
+(90002, '22233344455', '1990-08-23', '21988880002', '20040002', 'Rua da Assembleia, 50 - Rio de Janeiro/RJ', 1002),
+(90003, '33344455566', '1998-12-01', '31988880003', '30140071', 'Av. Afonso Pena, 700 - Belo Horizonte/MG', 1003),
+(90004, '44455566677', '1987-06-30', '41988880004', '80010000', 'Rua XV de Novembro, 200 - Curitiba/PR', 1004),
+(90005, '55566677788', '2000-02-14', '51988880005', '90010150', 'Av. Borges de Medeiros, 300 - Porto Alegre/RS', 1005),
+(90006, '66677788899', '1993-09-05', '71988880006', '40020000', 'Av. Sete de Setembro, 400 - Salvador/BA', 1006),
+(90007, '77788899900', '1996-11-19', '81988880007', '50030230', 'Av. Conde da Boa Vista, 800 - Recife/PE', 1007),
+(90008, '88899900011', '1985-01-27', '60110110', '60110110', 'Av. Beira Mar, 900 - Fortaleza/CE', 1008);
 
 -- =============================================================================
 -- 3) PERFIS PJ (StoreProfile)
@@ -100,22 +101,22 @@ INSERT INTO marketplace_app_storeprofile
      responsible_cpf, phone, email, commercial_cep, commercial_address,
      verified, banner, description, user_id)
 VALUES
-(1, '11222333000181', 'Tech Store Comércio de Eletrônicos LTDA', 'TechStore', '123456789', 'Roberto Tech',
+(90001, '11222333000181', 'Tech Store Comércio de Eletrônicos LTDA', 'TechStore', '123456789', 'Roberto Tech',
     '10120230340', '1133330001', 'contato@techstore.com', '01310100', 'Av. Paulista, 1500 - São Paulo/SP',
     true,  NULL, 'Loja especializada em notebooks, periféricos e componentes de informática.', 1020),
-(2, '22333444000172', 'Game World Entretenimento LTDA', 'GameWorld', '234567890', 'Marina Games',
+(90002, '22333444000172', 'Game World Entretenimento LTDA', 'GameWorld', '234567890', 'Marina Games',
     '20230340450', '2133330002', 'contato@gameworld.com', '20040002', 'Rua do Ouvidor, 120 - Rio de Janeiro/RJ',
     false, NULL, 'Consoles, jogos e acessórios gamer com garantia.', 1021),
-(3, '33444555000163', 'Foto Pro Equipamentos LTDA', 'FotoPro', '345678901', 'Paulo Foto',
+(90003, '33444555000163', 'Foto Pro Equipamentos LTDA', 'FotoPro', '345678901', 'Paulo Foto',
     '30340450560', '3133330003', 'contato@fotopro.com', '30140071', 'Av. do Contorno, 2000 - Belo Horizonte/MG',
     true,  NULL, 'Câmeras, lentes e equipamentos profissionais de fotografia e vídeo.', 1022),
-(4, '44555666000154', 'Audio Max Som e Imagem LTDA', 'AudioMax', '456789012', 'Sandra Audio',
+(90004, '44555666000154', 'Audio Max Som e Imagem LTDA', 'AudioMax', '456789012', 'Sandra Audio',
     '40450560670', '4133330004', 'contato@audiomax.com', '80010000', 'Rua das Flores, 300 - Curitiba/PR',
     false, NULL, 'Home theater, soundbars e fones de alta fidelidade.', 1023),
-(5, '55666777000145', 'Info Mega Tecnologia LTDA', 'InfoMega', '567890123', 'Carlos Mega',
+(90005, '55666777000145', 'Info Mega Tecnologia LTDA', 'InfoMega', '567890123', 'Carlos Mega',
     '50560670780', '5133330005', 'contato@infomega.com', '90010150', 'Av. Ipiranga, 1800 - Porto Alegre/RS',
     true,  NULL, 'Tudo em informática: monitores, teclados, mouses e hardware.', 1024),
-(6, '66777888000136', 'Mobile Zone Celulares LTDA', 'MobileZone', '678901234', 'Juliana Mobile',
+(90006, '66777888000136', 'Mobile Zone Celulares LTDA', 'MobileZone', '678901234', 'Juliana Mobile',
     '60670780890', '7133330006', 'contato@mobilezone.com', '40020000', 'Av. Tancredo Neves, 500 - Salvador/BA',
     true,  NULL, 'Smartphones, smartwatches e acessórios das melhores marcas.', 1025);
 
@@ -160,45 +161,45 @@ VALUES
 -- 5) IMAGENS DE ANÚNCIO (ListingImage) — caminhos de exemplo
 -- =============================================================================
 INSERT INTO marketplace_app_listingimage (id, image, listing_id) VALUES
-(1, 'listings/notebook-dell.jpg',   2001),
-(2, 'listings/ssd-kingston.jpg',    2002),
-(3, 'listings/ps5-slim.jpg',        2005),
-(4, 'listings/canon-r50.jpg',       2007),
-(5, 'listings/iphone14.jpg',        2011),
-(6, 'listings/iphone11-usado.jpg',  2013),
-(7, 'listings/switch-oled.jpg',     2014),
-(8, 'listings/rtx3060.jpg',         2020);
+(90001, 'listings/notebook-dell.jpg',   2001),
+(90002, 'listings/ssd-kingston.jpg',    2002),
+(90003, 'listings/ps5-slim.jpg',        2005),
+(90004, 'listings/canon-r50.jpg',       2007),
+(90005, 'listings/iphone14.jpg',        2011),
+(90006, 'listings/iphone11-usado.jpg',  2013),
+(90007, 'listings/switch-oled.jpg',     2014),
+(90008, 'listings/rtx3060.jpg',         2020);
 
 -- =============================================================================
 -- 6) COMENTÁRIOS (Comment) — inclui respostas (parent_id)
 -- =============================================================================
 INSERT INTO marketplace_app_comment (id, content, created_at, listing_id, user_id, parent_id) VALUES
-(1, 'Esse notebook acompanha mochila?', '2026-04-26 10:00:00-03', 2001, 1002, NULL),
-(2, 'Olá! Não acompanha mochila, apenas o carregador original.', '2026-04-26 10:30:00-03', 2001, 1020, 1),
-(3, 'Tem desconto para pagamento à vista no PIX?', '2026-04-26 11:00:00-03', 2005, 1003, NULL),
-(4, 'Sim! 5% de desconto no PIX. :)', '2026-04-26 11:15:00-03', 2005, 1021, 3),
-(5, 'A bateria do iPhone 11 está com quantos %?', '2026-04-27 09:20:00-03', 2013, 1004, NULL),
-(6, 'Está com 87% de saúde de bateria.', '2026-04-27 09:45:00-03', 2013, 1001, 5),
-(7, 'Aceita troca por um monitor ultrawide de 34"?', '2026-04-27 14:00:00-03', 2015, 1008, NULL),
-(8, 'Aceito sim, dependendo do modelo. Pode me chamar no chat.', '2026-04-27 14:20:00-03', 2015, 1003, 7),
-(9, 'A lente tem fungos ou riscos?', '2026-04-28 16:30:00-03', 2016, 1007, NULL),
-(10,'Sem fungos e sem riscos, vidro impecável!', '2026-04-28 16:50:00-03', 2016, 1004, 9),
-(11,'Esse Switch ainda está disponível?', '2026-04-29 10:10:00-03', 2014, 1006, NULL),
-(12,'A RTX 3060 foi usada em mineração?', '2026-04-29 13:40:00-03', 2020, 1002, NULL);
+(90001, 'Esse notebook acompanha mochila?', '2026-04-26 10:00:00-03', 2001, 1002, NULL),
+(90002, 'Olá! Não acompanha mochila, apenas o carregador original.', '2026-04-26 10:30:00-03', 2001, 1020, 90001),
+(90003, 'Tem desconto para pagamento à vista no PIX?', '2026-04-26 11:00:00-03', 2005, 1003, NULL),
+(90004, 'Sim! 5% de desconto no PIX. :)', '2026-04-26 11:15:00-03', 2005, 1021, 90003),
+(90005, 'A bateria do iPhone 11 está com quantos %?', '2026-04-27 09:20:00-03', 2013, 1004, NULL),
+(90006, 'Está com 87% de saúde de bateria.', '2026-04-27 09:45:00-03', 2013, 1001, 90005),
+(90007, 'Aceita troca por um monitor ultrawide de 34"?', '2026-04-27 14:00:00-03', 2015, 1008, NULL),
+(90008, 'Aceito sim, dependendo do modelo. Pode me chamar no chat.', '2026-04-27 14:20:00-03', 2015, 1003, 90007),
+(90009, 'A lente tem fungos ou riscos?', '2026-04-28 16:30:00-03', 2016, 1007, NULL),
+(90010,'Sem fungos e sem riscos, vidro impecável!', '2026-04-28 16:50:00-03', 2016, 1004, 90009),
+(90011,'Esse Switch ainda está disponível?', '2026-04-29 10:10:00-03', 2014, 1006, NULL),
+(90012,'A RTX 3060 foi usada em mineração?', '2026-04-29 13:40:00-03', 2020, 1002, NULL);
 
 -- =============================================================================
 -- 7) CARRINHOS (Cart) e ITENS (CartItem)
 -- =============================================================================
 INSERT INTO marketplace_app_cart (id, created_at, user_id) VALUES
-(1, '2026-05-01 09:00:00-03', 1001),
-(2, '2026-05-01 10:00:00-03', 1002),
-(3, '2026-05-01 11:00:00-03', 1007);
+(90001, '2026-05-01 09:00:00-03', 1001),
+(90002, '2026-05-01 10:00:00-03', 1002),
+(90003, '2026-05-01 11:00:00-03', 1007);
 
 INSERT INTO marketplace_app_cartitem (id, desired_action, added_at, cart_id, listing_id) VALUES
-(1, 'buy', '2026-05-01 09:05:00-03', 1, 2004),  -- Ana quer Monitor (InfoMega)
-(2, 'buy', '2026-05-01 09:10:00-03', 1, 2005),  -- Ana quer PS5 (GameWorld)
-(3, 'buy', '2026-05-01 10:05:00-03', 2, 2007),  -- Bruno quer Canon (FotoPro)
-(4, 'buy', '2026-05-01 11:05:00-03', 3, 2013);  -- Gabriela quer iPhone 11 (Ana)
+(90001, 'buy', '2026-05-01 09:05:00-03', 90001, 2004),  -- Ana quer Monitor (InfoMega)
+(90002, 'buy', '2026-05-01 09:10:00-03', 90001, 2005),  -- Ana quer PS5 (GameWorld)
+(90003, 'buy', '2026-05-01 10:05:00-03', 90002, 2007),  -- Bruno quer Canon (FotoPro)
+(90004, 'buy', '2026-05-01 11:05:00-03', 90003, 2013);  -- Gabriela quer iPhone 11 (Ana)
 
 -- =============================================================================
 -- 8) PEDIDOS (Order), ITENS, PAGAMENTOS e ENTREGAS
@@ -214,40 +215,40 @@ VALUES
 INSERT INTO marketplace_app_orderitem
     (id, title_snapshot, unit_price_snapshot, quantity, status, shipped_at, received_at, listing_id, order_id, seller_id)
 VALUES
-(1, 'SSD NVMe 1TB Kingston',                480.00,  1, 'shipped',  '2026-05-02 15:00:00-03', NULL, 2002, 3001, 1020),
-(2, 'Controle Xbox Series Wireless',        420.00,  1, 'pending_shipment', NULL, NULL,            2006, 3002, 1021),
-(3, 'Smartwatch Galaxy Watch6 44mm',        1100.00, 1, 'shipped',  '2026-05-04 18:00:00-03', NULL, 2012, 3003, 1025),
-(4, 'Fone Bluetooth com Cancelamento de Ruído', 350.00, 1, 'shipped', '2026-05-04 18:00:00-03', NULL, 2010, 3003, 1023),
-(5, 'Tripé Profissional de Alumínio 1,7m',  280.00,  1, 'received', '2026-05-05 10:00:00-03', '2026-05-06 17:30:00-03', 2008, 3004, 1022);
+(90001, 'SSD NVMe 1TB Kingston',                480.00,  1, 'shipped',  '2026-05-02 15:00:00-03', NULL, 2002, 3001, 1020),
+(90002, 'Controle Xbox Series Wireless',        420.00,  1, 'pending_shipment', NULL, NULL,            2006, 3002, 1021),
+(90003, 'Smartwatch Galaxy Watch6 44mm',        1100.00, 1, 'shipped',  '2026-05-04 18:00:00-03', NULL, 2012, 3003, 1025),
+(90004, 'Fone Bluetooth com Cancelamento de Ruído', 350.00, 1, 'shipped', '2026-05-04 18:00:00-03', NULL, 2010, 3003, 1023),
+(90005, 'Tripé Profissional de Alumínio 1,7m',  280.00,  1, 'received', '2026-05-05 10:00:00-03', '2026-05-06 17:30:00-03', 2008, 3004, 1022);
 
 INSERT INTO marketplace_app_paymenttransaction
     (id, gateway, status, external_reference, preference_id, checkout_url, amount, payload, created_at, updated_at, order_id)
 VALUES
-(1, 'mercado_pago', 'approved',   'REF-3001', 'PREF-3001', 'https://mp.example.com/checkout/3001', 480.00,  '{}', '2026-05-02 10:01:00-03', '2026-05-02 10:05:00-03', 3001),
-(2, 'mercado_pago', 'pending',    'REF-3002', 'PREF-3002', 'https://mp.example.com/checkout/3002', 420.00,  '{}', '2026-05-03 14:01:00-03', '2026-05-03 14:01:00-03', 3002),
-(3, 'mercado_pago', 'approved',   'REF-3003', 'PREF-3003', 'https://mp.example.com/checkout/3003', 1450.00, '{}', '2026-05-04 16:31:00-03', '2026-05-04 16:35:00-03', 3003),
-(4, 'mercado_pago', 'approved',   'REF-3004', 'PREF-3004', 'https://mp.example.com/checkout/3004', 280.00,  '{}', '2026-05-05 09:16:00-03', '2026-05-05 09:20:00-03', 3004);
+(90001, 'mercado_pago', 'approved',   'REF-3001', 'PREF-3001', 'https://mp.example.com/checkout/3001', 480.00,  '{}', '2026-05-02 10:01:00-03', '2026-05-02 10:05:00-03', 3001),
+(90002, 'mercado_pago', 'pending',    'REF-3002', 'PREF-3002', 'https://mp.example.com/checkout/3002', 420.00,  '{}', '2026-05-03 14:01:00-03', '2026-05-03 14:01:00-03', 3002),
+(90003, 'mercado_pago', 'approved',   'REF-3003', 'PREF-3003', 'https://mp.example.com/checkout/3003', 1450.00, '{}', '2026-05-04 16:31:00-03', '2026-05-04 16:35:00-03', 3003),
+(90004, 'mercado_pago', 'approved',   'REF-3004', 'PREF-3004', 'https://mp.example.com/checkout/3004', 280.00,  '{}', '2026-05-05 09:16:00-03', '2026-05-05 09:20:00-03', 3004);
 
 INSERT INTO marketplace_app_delivery
     (id, method, recipient_name, recipient_phone, postal_code, street, number, complement,
      neighborhood, city, state, shipping_cost, carrier_name, tracking_code, status,
      estimated_delivery_date, delivered_at, notes, created_at, updated_at, order_id)
 VALUES
-(1, 'platform_shipping', 'Ana Souza',   '11988880001', '01310100', 'Av. Paulista',        '1000', 'Apto 52', 'Bela Vista',  'São Paulo',     'SP', 25.00, 'Correios',  'BR123456789BR', 'in_transit', '2026-05-08', NULL,                     '', '2026-05-02 10:10:00-03', '2026-05-02 15:05:00-03', 3001),
-(2, 'seller_shipping',   'Bruno Lima',  '21988880002', '20040002', 'Rua da Assembleia',   '50',   '',        'Centro',      'Rio de Janeiro','RJ', 30.00, '',          '',              'pending',    NULL,         NULL,                     '', '2026-05-03 14:05:00-03', '2026-05-03 14:05:00-03', 3002),
-(3, 'platform_shipping', 'Carla Dias',  '31988880003', '30140071', 'Av. Afonso Pena',     '700',  'Casa',    'Funcionários','Belo Horizonte','MG', 28.00, 'Correios',  'BR987654321BR', 'in_transit', '2026-05-09', NULL,                     '', '2026-05-04 16:40:00-03', '2026-05-04 18:05:00-03', 3003),
-(4, 'pickup',            'Diego Alves', '41988880004', '80010000', 'Rua XV de Novembro',  '200',  '',        'Centro',      'Curitiba',      'PR', 0.00,  '',          '',              'delivered',  '2026-05-06', '2026-05-06 17:30:00-03', 'Retirada na loja física.', '2026-05-05 09:20:00-03', '2026-05-06 18:00:00-03', 3004);
+(90001, 'platform_shipping', 'Ana Souza',   '11988880001', '01310100', 'Av. Paulista',        '1000', 'Apto 52', 'Bela Vista',  'São Paulo',     'SP', 25.00, 'Correios',  'BR123456789BR', 'in_transit', '2026-05-08', NULL,                     '', '2026-05-02 10:10:00-03', '2026-05-02 15:05:00-03', 3001),
+(90002, 'seller_shipping',   'Bruno Lima',  '21988880002', '20040002', 'Rua da Assembleia',   '50',   '',        'Centro',      'Rio de Janeiro','RJ', 30.00, '',          '',              'pending',    NULL,         NULL,                     '', '2026-05-03 14:05:00-03', '2026-05-03 14:05:00-03', 3002),
+(90003, 'platform_shipping', 'Carla Dias',  '31988880003', '30140071', 'Av. Afonso Pena',     '700',  'Casa',    'Funcionários','Belo Horizonte','MG', 28.00, 'Correios',  'BR987654321BR', 'in_transit', '2026-05-09', NULL,                     '', '2026-05-04 16:40:00-03', '2026-05-04 18:05:00-03', 3003),
+(90004, 'pickup',            'Diego Alves', '41988880004', '80010000', 'Rua XV de Novembro',  '200',  '',        'Centro',      'Curitiba',      'PR', 0.00,  '',          '',              'delivered',  '2026-05-06', '2026-05-06 17:30:00-03', 'Retirada na loja física.', '2026-05-05 09:20:00-03', '2026-05-06 18:00:00-03', 3004);
 
 -- =============================================================================
 -- 9) MENSAGENS DIRETAS (Message)
 -- =============================================================================
 INSERT INTO marketplace_app_message (id, content, created_at, listing_id, receiver_id, sender_id) VALUES
-(1, 'Olá, o notebook ainda está disponível?', '2026-04-26 09:00:00-03', 2001, 1020, 1002),
-(2, 'Sim, temos em estoque! Posso ajudar com algo?', '2026-04-26 09:05:00-03', 2001, 1002, 1020),
-(3, 'Tem interesse em trocar a lente por um flash?', '2026-04-28 10:00:00-03', 2016, 1004, 1007),
-(4, 'O iPhone 11 acompanha carregador?', '2026-04-27 11:00:00-03', 2013, 1001, 1007),
-(5, 'Acompanha cabo, mas não a fonte. :)', '2026-04-27 11:10:00-03', 2013, 1007, 1001),
-(6, 'Faz por 1700 no Switch?', '2026-04-29 12:00:00-03', 2014, 1002, 1006);
+(90001, 'Olá, o notebook ainda está disponível?', '2026-04-26 09:00:00-03', 2001, 1020, 1002),
+(90002, 'Sim, temos em estoque! Posso ajudar com algo?', '2026-04-26 09:05:00-03', 2001, 1002, 1020),
+(90003, 'Tem interesse em trocar a lente por um flash?', '2026-04-28 10:00:00-03', 2016, 1004, 1007),
+(90004, 'O iPhone 11 acompanha carregador?', '2026-04-27 11:00:00-03', 2013, 1001, 1007),
+(90005, 'Acompanha cabo, mas não a fonte. :)', '2026-04-27 11:10:00-03', 2013, 1007, 1001),
+(90006, 'Faz por 1700 no Switch?', '2026-04-29 12:00:00-03', 2014, 1002, 1006);
 
 -- =============================================================================
 -- 10) FLUXO DE TROCAS (TradeRequest / Proposal / Message / Fulfillment / Delivery)
@@ -263,14 +264,14 @@ VALUES
 INSERT INTO marketplace_app_tradeproposal
     (id, item_description, cash_amount, cash_payer, note, created_at, proposer_id, trade_request_id)
 VALUES
-(1, 'Xbox Series S 512GB na caixa, estado de novo.', 0.00,   '',          'Troca limpa, sem volta.', '2026-05-07 10:30:00-03', 1006, 6001),
-(2, 'Switch OLED + 200 de volta para fechar.',        200.00, 'requester', 'Topo, mas com volta sua.', '2026-05-07 11:30:00-03', 1002, 6001),
-(3, 'Desktop gamer Ryzen 5 + RX 6600.',               0.00,   '',          'Troca direta pelo notebook.', '2026-05-08 09:30:00-03', 1001, 6002);
+(90001, 'Xbox Series S 512GB na caixa, estado de novo.', 0.00,   '',          'Troca limpa, sem volta.', '2026-05-07 10:30:00-03', 1006, 6001),
+(90002, 'Switch OLED + 200 de volta para fechar.',        200.00, 'requester', 'Topo, mas com volta sua.', '2026-05-07 11:30:00-03', 1002, 6001),
+(90003, 'Desktop gamer Ryzen 5 + RX 6600.',               0.00,   '',          'Troca direta pelo notebook.', '2026-05-08 09:30:00-03', 1001, 6002);
 
 INSERT INTO marketplace_app_trademessage (id, content, created_at, sender_id, trade_request_id) VALUES
-(1, 'Bora fechar? Posso enviar amanhã.', '2026-05-07 11:45:00-03', 1006, 6001),
-(2, 'Fechado, te mando os dados de envio.', '2026-05-07 12:00:00-03', 1002, 6001),
-(3, 'Combinado! Fico com o desktop então.', '2026-05-09 15:00:00-03', 1003, 6002);
+(90001, 'Bora fechar? Posso enviar amanhã.', '2026-05-07 11:45:00-03', 1006, 6001),
+(90002, 'Fechado, te mando os dados de envio.', '2026-05-07 12:00:00-03', 1002, 6001),
+(90003, 'Combinado! Fico com o desktop então.', '2026-05-09 15:00:00-03', 1003, 6002);
 
 -- Execução da troca aprovada (6002)
 INSERT INTO marketplace_app_tradefulfillment
@@ -279,18 +280,18 @@ INSERT INTO marketplace_app_tradefulfillment
      number, complement, neighborhood, city, state, notes, confirmed_at, created_at, updated_at,
      agreed_proposal_id, trade_request_id)
 VALUES
-(1, 0.00, '', 'payment_confirmed', '', '{}', '2026-05-09 16:00:00-03', 'to_agree',
+(90001, 0.00, '', 'payment_confirmed', '', '{}', '2026-05-09 16:00:00-03', 'to_agree',
    'Carla Dias', '31988880003', '30140071', 'Av. Afonso Pena', '700', 'Casa', 'Funcionários',
    'Belo Horizonte', 'MG', 'Troca sem valores adicionais.', '2026-05-09 16:05:00-03',
-   '2026-05-09 15:30:00-03', '2026-05-09 16:05:00-03', 3, 6002);
+   '2026-05-09 15:30:00-03', '2026-05-09 16:05:00-03', 90003, 6002);
 
 -- Entregas da troca (cada parte registra a sua)
 INSERT INTO marketplace_app_tradedelivery
     (id, delivery_method, recipient_name, recipient_phone, postal_code, street, number, complement,
      neighborhood, city, state, notes, status, created_at, updated_at, trade_request_id, user_id)
 VALUES
-(1, 'platform_shipping', 'Carla Dias', '31988880003', '30140071', 'Av. Afonso Pena', '700', 'Casa', 'Funcionários', 'Belo Horizonte', 'MG', 'Envio do notebook.', 'sent', '2026-05-10 09:00:00-03', '2026-05-10 09:00:00-03', 6002, 1003),
-(2, 'platform_shipping', 'Ana Souza',  '11988880001', '01310100', 'Av. Paulista',    '1000', 'Apto 52', 'Bela Vista', 'São Paulo', 'SP', 'Envio do desktop.', 'sent', '2026-05-10 09:30:00-03', '2026-05-10 09:30:00-03', 6002, 1001);
+(90001, 'platform_shipping', 'Carla Dias', '31988880003', '30140071', 'Av. Afonso Pena', '700', 'Casa', 'Funcionários', 'Belo Horizonte', 'MG', 'Envio do notebook.', 'sent', '2026-05-10 09:00:00-03', '2026-05-10 09:00:00-03', 6002, 1003),
+(90002, 'platform_shipping', 'Ana Souza',  '11988880001', '01310100', 'Av. Paulista',    '1000', 'Apto 52', 'Bela Vista', 'São Paulo', 'SP', 'Envio do desktop.', 'sent', '2026-05-10 09:30:00-03', '2026-05-10 09:30:00-03', 6002, 1001);
 
 -- =============================================================================
 -- 11) ENDEREÇOS (Address)
@@ -299,13 +300,13 @@ INSERT INTO marketplace_app_address
     (id, label, recipient_name, recipient_phone, postal_code, street, number, complement,
      neighborhood, city, state, is_default, created_at, user_id)
 VALUES
-(1, 'Casa',     'Ana Souza',      '11988880001', '01310100', 'Av. Paulista',       '1000', 'Apto 52', 'Bela Vista',   'São Paulo',      'SP', true,  '2026-03-05 10:20:00-03', 1001),
-(2, 'Trabalho', 'Ana Souza',      '11988880001', '04538133', 'Av. Brigadeiro Faria Lima', '3477', '12º andar', 'Itaim Bibi', 'São Paulo', 'SP', false, '2026-03-15 14:00:00-03', 1001),
-(3, 'Casa',     'Bruno Lima',     '21988880002', '20040002', 'Rua da Assembleia',  '50',   '',        'Centro',       'Rio de Janeiro', 'RJ', true,  '2026-03-06 11:25:00-03', 1002),
-(4, 'Casa',     'Carla Dias',     '31988880003', '30140071', 'Av. Afonso Pena',    '700',  'Casa',    'Funcionários', 'Belo Horizonte', 'MG', true,  '2026-03-07 14:10:00-03', 1003),
-(5, 'Casa',     'Diego Alves',    '41988880004', '80010000', 'Rua XV de Novembro', '200',  '',        'Centro',       'Curitiba',       'PR', true,  '2026-03-08 16:50:00-03', 1004),
-(6, 'Casa',     'Eduarda Melo',   '51988880005', '90010150', 'Av. Borges de Medeiros', '300', '',     'Centro',       'Porto Alegre',   'RS', true,  '2026-03-09 08:35:00-03', 1005),
-(7, 'Casa',     'Gabriela Nunes', '81988880007', '50030230', 'Av. Conde da Boa Vista', '800', 'Bloco B', 'Boa Vista', 'Recife',         'PE', true,  '2026-03-11 12:10:00-03', 1007);
+(90001, 'Casa',     'Ana Souza',      '11988880001', '01310100', 'Av. Paulista',       '1000', 'Apto 52', 'Bela Vista',   'São Paulo',      'SP', true,  '2026-03-05 10:20:00-03', 1001),
+(90002, 'Trabalho', 'Ana Souza',      '11988880001', '04538133', 'Av. Brigadeiro Faria Lima', '3477', '12º andar', 'Itaim Bibi', 'São Paulo', 'SP', false, '2026-03-15 14:00:00-03', 1001),
+(90003, 'Casa',     'Bruno Lima',     '21988880002', '20040002', 'Rua da Assembleia',  '50',   '',        'Centro',       'Rio de Janeiro', 'RJ', true,  '2026-03-06 11:25:00-03', 1002),
+(90004, 'Casa',     'Carla Dias',     '31988880003', '30140071', 'Av. Afonso Pena',    '700',  'Casa',    'Funcionários', 'Belo Horizonte', 'MG', true,  '2026-03-07 14:10:00-03', 1003),
+(90005, 'Casa',     'Diego Alves',    '41988880004', '80010000', 'Rua XV de Novembro', '200',  '',        'Centro',       'Curitiba',       'PR', true,  '2026-03-08 16:50:00-03', 1004),
+(90006, 'Casa',     'Eduarda Melo',   '51988880005', '90010150', 'Av. Borges de Medeiros', '300', '',     'Centro',       'Porto Alegre',   'RS', true,  '2026-03-09 08:35:00-03', 1005),
+(90007, 'Casa',     'Gabriela Nunes', '81988880007', '50030230', 'Av. Conde da Boa Vista', '800', 'Bloco B', 'Boa Vista', 'Recife',         'PE', true,  '2026-03-11 12:10:00-03', 1007);
 
 -- =============================================================================
 -- 12) NOTIFICAÇÕES (Notification)
@@ -313,16 +314,16 @@ VALUES
 INSERT INTO marketplace_app_notification
     (id, category, title, message, url, icon, is_read, created_at, actor_id, recipient_id)
 VALUES
-(1, 'sale',     'Você fez uma venda!',        'Seu SSD NVMe 1TB foi vendido para Ana Souza.', '/pedidos/3001/', 'sell',          false, '2026-05-02 10:02:00-03', 1001, 1020),
-(2, 'purchase', 'Pedido confirmado',          'Seu pagamento do pedido #3001 foi aprovado.',  '/pedidos/3001/', 'shopping_bag',  true,  '2026-05-02 10:06:00-03', NULL, 1001),
-(3, 'comment',  'Novo comentário no anúncio', 'Bruno comentou no seu anúncio "Notebook Dell".', '/anuncios/2001/', 'comment',     false, '2026-04-26 10:01:00-03', 1002, 1020),
-(4, 'trade',    'Nova proposta de troca',     'Felipe enviou uma proposta de troca pelo seu Switch.', '/trocas/6001/', 'swap_horiz', false, '2026-05-07 10:31:00-03', 1006, 1002),
-(5, 'trade',    'Troca aprovada',             'Sua troca com a Carla foi aprovada!',          '/trocas/6002/',  'swap_horiz',    true,  '2026-05-09 15:01:00-03', 1003, 1001),
-(6, 'purchase', 'Produto a caminho',          'Seu pedido #3003 está em trânsito.',           '/pedidos/3003/', 'local_shipping',false, '2026-05-04 18:06:00-03', NULL, 1003),
-(7, 'system',   'Bem-vindo ao Marketplace',   'Complete seu perfil para começar a vender.',   '/perfil/',       'notifications', true,  '2026-03-05 10:16:00-03', NULL, 1001),
-(8, 'sale',     'Você fez uma venda!',        'Seu Smartwatch Galaxy Watch6 foi vendido.',    '/pedidos/3003/', 'sell',          false, '2026-05-04 16:36:00-03', 1003, 1025),
-(9, 'comment',  'Resposta ao seu comentário', 'A loja respondeu sua dúvida sobre o PS5.',     '/anuncios/2005/','comment',       false, '2026-04-26 11:16:00-03', 1021, 1003),
-(10,'system',   'Conta verificada',           'Sua loja foi verificada com sucesso!',         '/perfil/loja/',  'verified',      true,  '2026-03-01 12:00:00-03', NULL, 1020);
+(90001, 'sale',     'Você fez uma venda!',        'Seu SSD NVMe 1TB foi vendido para Ana Souza.', '/pedidos/3001/', 'sell',          false, '2026-05-02 10:02:00-03', 1001, 1020),
+(90002, 'purchase', 'Pedido confirmado',          'Seu pagamento do pedido #3001 foi aprovado.',  '/pedidos/3001/', 'shopping_bag',  true,  '2026-05-02 10:06:00-03', NULL, 1001),
+(90003, 'comment',  'Novo comentário no anúncio', 'Bruno comentou no seu anúncio "Notebook Dell".', '/anuncios/2001/', 'comment',     false, '2026-04-26 10:01:00-03', 1002, 1020),
+(90004, 'trade',    'Nova proposta de troca',     'Felipe enviou uma proposta de troca pelo seu Switch.', '/trocas/6001/', 'swap_horiz', false, '2026-05-07 10:31:00-03', 1006, 1002),
+(90005, 'trade',    'Troca aprovada',             'Sua troca com a Carla foi aprovada!',          '/trocas/6002/',  'swap_horiz',    true,  '2026-05-09 15:01:00-03', 1003, 1001),
+(90006, 'purchase', 'Produto a caminho',          'Seu pedido #3003 está em trânsito.',           '/pedidos/3003/', 'local_shipping',false, '2026-05-04 18:06:00-03', NULL, 1003),
+(90007, 'system',   'Bem-vindo ao Marketplace',   'Complete seu perfil para começar a vender.',   '/perfil/',       'notifications', true,  '2026-03-05 10:16:00-03', NULL, 1001),
+(90008, 'sale',     'Você fez uma venda!',        'Seu Smartwatch Galaxy Watch6 foi vendido.',    '/pedidos/3003/', 'sell',          false, '2026-05-04 16:36:00-03', 1003, 1025),
+(90009, 'comment',  'Resposta ao seu comentário', 'A loja respondeu sua dúvida sobre o PS5.',     '/anuncios/2005/','comment',       false, '2026-04-26 11:16:00-03', 1021, 1003),
+(90010,'system',   'Conta verificada',           'Sua loja foi verificada com sucesso!',         '/perfil/loja/',  'verified',      true,  '2026-03-01 12:00:00-03', NULL, 1020);
 
 -- =============================================================================
 -- 13) DENÚNCIAS (ListingReport)
@@ -330,8 +331,8 @@ VALUES
 INSERT INTO marketplace_app_listingreport
     (id, reason, detail, status, created_at, listing_id, reporter_id)
 VALUES
-(1, 'scam',     'Preço muito abaixo do mercado, parece golpe.', 'open',     '2026-05-03 10:00:00-03', 2023, 1002),
-(2, 'off_topic','Produto não parece ser da categoria correta.', 'dismissed','2026-05-04 11:00:00-03', 2021, 1008);
+(90001, 'scam',     'Preço muito abaixo do mercado, parece golpe.', 'open',     '2026-05-03 10:00:00-03', 2023, 1002),
+(90002, 'off_topic','Produto não parece ser da categoria correta.', 'dismissed','2026-05-04 11:00:00-03', 2021, 1008);
 
 -- =============================================================================
 -- 14) PEDIDOS DE VERIFICAÇÃO DE LOJA (StoreVerificationRequest)
@@ -339,8 +340,8 @@ VALUES
 INSERT INTO marketplace_app_storeverificationrequest
     (id, document, message, status, review_note, created_at, reviewed_at, store_id)
 VALUES
-(1, 'verification_docs/gameworld_contrato_social.pdf', 'Segue contrato social para verificação.', 'pending',  '', '2026-05-01 09:00:00-03', NULL, 1021),
-(2, 'verification_docs/fotopro_cnpj.pdf',              'Documentos da empresa em anexo.',          'approved', 'Documentação conferida e aprovada.', '2026-04-15 09:00:00-03', '2026-04-16 14:00:00-03', 1022);
+(90001, 'verification_docs/gameworld_contrato_social.pdf', 'Segue contrato social para verificação.', 'pending',  '', '2026-05-01 09:00:00-03', NULL, 1021),
+(90002, 'verification_docs/fotopro_cnpj.pdf',              'Documentos da empresa em anexo.',          'approved', 'Documentação conferida e aprovada.', '2026-04-15 09:00:00-03', '2026-04-16 14:00:00-03', 1022);
 
 -- =============================================================================
 -- 15) REAJUSTE DAS SEQUENCES (para não colidir com inserts futuros do app)
@@ -374,7 +375,8 @@ COMMIT;
 -- =============================================================================
 -- FIM DO SEED
 -- Usuários criados (senha de todos = senha123):
---   admin / ana.souza / bruno.lima / carla.dias / diego.alves / eduarda.melo
+--   ana.souza / bruno.lima / carla.dias / diego.alves / eduarda.melo
 --   felipe.rocha / gabriela.nunes / henrique.cruz
 --   Lojas: techstore / gameworld / fotopro / audiomax / infomega / mobilezone
+--   (o 'admin' e criado pelo comando createadmin, nao por este seed)
 -- =============================================================================
