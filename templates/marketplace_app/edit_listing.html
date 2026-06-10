@@ -267,16 +267,23 @@
                     {% if listing.images.exists %}
                     <div style="margin-bottom: 0.85rem;">
                         <p class="form-help-text" style="margin-bottom: 0.5rem;">
-                            Fotos atuais ({{ listing.images.count }}) — novas fotos serão adicionadas:
+                            Fotos atuais ({{ listing.images.count }}) — clique no <strong>×</strong> para marcar uma foto para remoção:
                         </p>
-                        <div class="image-preview-grid">
+                        <div class="image-preview-grid" id="current-images-grid">
                             {% for img in listing.images.all %}
-                            <div class="image-preview-thumb">
+                            <div class="image-preview-thumb image-thumb-removable">
                                 <img src="{{ img.image.url }}" alt="Foto {{ forloop.counter }}">
                                 <span class="image-preview-num">{{ forloop.counter }}</span>
+                                <input type="checkbox" name="remove_images" value="{{ img.id }}" id="remove-img-{{ img.id }}" class="thumb-remove-checkbox" hidden>
+                                <button type="button" class="thumb-remove-btn" data-target="remove-img-{{ img.id }}"
+                                        aria-label="Remover foto {{ forloop.counter }}" title="Remover esta foto">
+                                    <span class="material-icons">close</span>
+                                </button>
+                                <span class="thumb-removed-overlay">Será removida</span>
                             </div>
                             {% endfor %}
                         </div>
+                        <p class="form-help-text" id="remove-count-hint" style="margin-top: 0.4rem; color: var(--danger-color); display: none;"></p>
                     </div>
                     {% endif %}
 
@@ -313,7 +320,7 @@
             <ul>
                 <li><strong>Tipo:</strong> Mudar de Venda para Troca limpa o preço automaticamente.</li>
                 <li><strong>Preço:</strong> Atualize se quiser ser mais competitivo.</li>
-                <li><strong>Fotos:</strong> Novas fotos são adicionadas às existentes — não substituem.</li>
+                <li><strong>Fotos:</strong> Novas fotos são adicionadas às existentes. Para excluir uma foto atual, clique no <strong>×</strong> sobre ela e salve.</li>
                 <li><strong>Troca:</strong> Seja específico sobre o que aceita para atrair melhores propostas.</li>
                 <li><strong>Bloqueio:</strong> Se alguém iniciar uma negociação, a edição fica bloqueada até ela ser encerrada.</li>
             </ul>
@@ -473,6 +480,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (imagesInput) imagesInput.addEventListener('change', renderPreviews);
+
+    // ---- Remoção de fotos existentes ----
+    const removeHint = document.getElementById('remove-count-hint');
+
+    function updateRemoveHint() {
+        if (!removeHint) return;
+        const marked = document.querySelectorAll('.thumb-remove-checkbox:checked').length;
+        if (marked === 0) {
+            removeHint.style.display = 'none';
+            removeHint.textContent = '';
+        } else {
+            removeHint.style.display = 'block';
+            removeHint.textContent = marked === 1
+                ? '1 foto será removida ao salvar.'
+                : `${marked} fotos serão removidas ao salvar.`;
+        }
+    }
+
+    document.querySelectorAll('.thumb-remove-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const checkbox = document.getElementById(btn.dataset.target);
+            if (!checkbox) return;
+            checkbox.checked = !checkbox.checked;
+            btn.closest('.image-thumb-removable').classList.toggle('marked-for-removal', checkbox.checked);
+            btn.title = checkbox.checked ? 'Desfazer remoção' : 'Remover esta foto';
+            updateRemoveHint();
+        });
+    });
 
     if (uploadZone && imagesInput) {
         uploadZone.addEventListener('dragover', e => {

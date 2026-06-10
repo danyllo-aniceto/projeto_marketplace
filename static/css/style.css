@@ -5333,6 +5333,80 @@ body.light-mode .badge-rejected, body.light-mode .badge-cancelled {
     justify-content: center;
 }
 
+.thumb-remove-btn {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.35);
+    color: rgba(255, 255, 255, 0.75);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    opacity: 0.7;
+    transition: opacity 0.2s, background 0.2s, color 0.2s;
+}
+
+.thumb-remove-btn .material-icons {
+    font-size: 11px;
+}
+
+.image-thumb-removable:hover .thumb-remove-btn {
+    opacity: 1;
+}
+
+.thumb-remove-btn:hover {
+    background: rgba(0, 0, 0, 0.6);
+    color: var(--danger-color);
+}
+
+/* Nos thumbs removíveis o número vai para a direita, liberando o canto esquerdo para o × */
+.image-thumb-removable .image-preview-num {
+    left: auto;
+    right: 3px;
+}
+
+.thumb-removed-overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    pointer-events: none;
+    padding: 0 4px;
+}
+
+.image-thumb-removable.marked-for-removal {
+    border-color: var(--danger-color);
+}
+
+.image-thumb-removable.marked-for-removal img {
+    filter: grayscale(0.8);
+    opacity: 0.5;
+}
+
+.image-thumb-removable.marked-for-removal .thumb-removed-overlay {
+    display: flex;
+}
+
+.image-thumb-removable.marked-for-removal .thumb-remove-btn {
+    background: var(--danger-color);
+    color: #fff;
+    opacity: 1;
+}
+
 /* ============ CHAR COUNTER ============ */
 .field-char-counter {
     font-size: 0.75rem;

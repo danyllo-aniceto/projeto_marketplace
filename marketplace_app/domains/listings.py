@@ -235,20 +235,31 @@ def edit_listing(request, pk):
             return violation
         form = ListingForm(request.POST, request.FILES, instance=listing, user=request.user)
         if form.is_valid():
-            anuncio = form.save(commit=False)
-            anuncio.seller = request.user
-            # Estoque controla o status: 0 = esgotado (SOLD); repor reativa (ACTIVE).
-            if anuncio.stock == 0:
-                anuncio.status = Listing.SOLD
-            elif anuncio.status == Listing.SOLD and anuncio.stock > 0:
-                anuncio.status = Listing.ACTIVE
-            anuncio.save()
+            remove_ids = [v for v in request.POST.getlist('remove_images') if v.isdigit()]
+            new_images = form.cleaned_data.get('images', [])
+            remaining = listing.images.exclude(pk__in=remove_ids).count()
 
-            for image in form.cleaned_data.get('images', []):
-                ListingImage.objects.create(listing=anuncio, image=image)
+            if remaining + len(new_images) == 0:
+                form.add_error('images', 'O anúncio precisa de pelo menos uma foto. Mantenha uma das atuais ou adicione uma nova.')
+            else:
+                anuncio = form.save(commit=False)
+                anuncio.seller = request.user
+                # Estoque controla o status: 0 = esgotado (SOLD); repor reativa (ACTIVE).
+                if anuncio.stock == 0:
+                    anuncio.status = Listing.SOLD
+                elif anuncio.status == Listing.SOLD and anuncio.stock > 0:
+                    anuncio.status = Listing.ACTIVE
+                anuncio.save()
 
-            messages.success(request, f'Anúncio "{listing.title}" atualizado com sucesso!')
-            return redirect('my_listings')
+                for img in listing.images.filter(pk__in=remove_ids):
+                    img.image.delete(save=False)
+                    img.delete()
+
+                for image in new_images:
+                    ListingImage.objects.create(listing=anuncio, image=image)
+
+                messages.success(request, f'Anúncio "{listing.title}" atualizado com sucesso!')
+                return redirect('my_listings')
     else:
         form = ListingForm(instance=listing, user=request.user)
 
